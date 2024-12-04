@@ -8,11 +8,35 @@
   <packaging>jar</packaging>
 
   <name>archer-net</name>
-  <url>http://maven.apache.org</url>
+  <url>https://github.com/tagaryen/archer-net</url>
   <description>
     Base net framework. 
     Contact: tagaryen199@126.com
   </description>
+
+  <licenses>
+    <license>
+      <name>The Apache Software License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <id>github</id>
+      <name>tagaryen</name>
+      <email>2564928358@qq.com</email>
+      <roles>
+        <role>admin</role>
+      </roles>
+    </developer>
+  </developers>
+
+  <scm>
+    <connection>https://github.com/tagaryen/archer-net.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com:tagaryen/archer-net.git</developerConnection>
+    <url>https://github.com/tagaryen/archer-net</url>
+  </scm>
 
   <properties>
     <java.version>1.8</java.version>
@@ -32,14 +56,68 @@
     <finalName>archer-net-${project.version}</finalName>
     <plugins>
       <plugin>
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
+        <version>0.4.0</version>
+        <extensions>true</extensions>
+        <configuration>
+          <publishingServerId>github</publishingServerId>
+          <tokenAuth>true</tokenAuth>
+        </configuration>
+      </plugin>
+      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.8.1</version>
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <goals>
+              <goal>jar-no-fork</goal>
+            </goals>
+          </execution>
+        </executions>
         <configuration>
           <source>1.8</source>
           <target>1.8</target>
           <encoding>utf8</encoding>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.8.1</version>
+        <executions>
+          <execution>
+            <id>attach-javadocs</id>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <source>1.8</source>
+          <target>1.8</target>
+          <encoding>utf8</encoding>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-gpg-plugin</artifactId>
+        <version>1.5</version>
+        <configuration>
+          <executable>D:/GnuPG/bin/gpg.exe</executable>
+          <keyname>io.github.tagaryen</keyname>
+        </configuration>
+        <executions>
+          <execution>
+            <id>sign-artifacts</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>sign</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>
