@@ -4,7 +4,7 @@
 
   <groupId>io.github.tagaryen</groupId>
   <artifactId>archer-net</artifactId>
-  <version>1.3.2</version>
+  <version>1.3.4</version>
   <packaging>jar</packaging>
 
   <name>archer-net</name>
