@@ -1,6 +1,14 @@
 # archer-net
 network framework written native c, support latest openssl(gmssl) 1.3 
 support encrypted key and encrypted certificate  
+maven:  
+``` maven
+    <dependency>
+	  <groupId>io.github.tagaryen</groupId>  
+	  <artifactId>archer-net</artifactId>  
+	  <version>1.3.2</version>  
+	</dependency>  
+``` maven
 
 ## gmssl examples 
 ``` java 
