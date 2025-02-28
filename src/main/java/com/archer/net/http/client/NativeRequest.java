@@ -8,6 +8,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Consumer;
 import com.archer.net.Bytes;
 import com.archer.net.Channel;
 import com.archer.net.ChannelContext;
@@ -54,26 +55,56 @@ public class NativeRequest {
         return delete(httpUrl, body, null);
     }
 
-    public static NativeResponse get(String httpUrl, Options ctxions) {
-        return request("GET", httpUrl, null, ctxions);
+    public static NativeResponse get(String httpUrl, Options opt) {
+        return request("GET", httpUrl, null, opt);
     }
 
-    public static NativeResponse post(String httpUrl, byte[] body, Options ctxions) {
-        return request("POST", httpUrl, body, ctxions);
+    public static NativeResponse post(String httpUrl, byte[] body, Options opt) {
+        return request("POST", httpUrl, body, opt);
     }
 
-    public static NativeResponse put(String httpUrl, byte[] body, Options ctxions) {
-        return request("PUT", httpUrl, body, ctxions);
+    public static NativeResponse put(String httpUrl, byte[] body, Options opt) {
+        return request("PUT", httpUrl, body, opt);
     }
 
-    public static NativeResponse delete(String httpUrl, byte[] body, Options ctxions) {
-        return request("DELETE", httpUrl, body, ctxions);
+    public static NativeResponse delete(String httpUrl, byte[] body, Options opt) {
+        return request("DELETE", httpUrl, body, opt);
+    }
+    
+
+    public static void getAsync(String httpUrl, Consumer<NativeResponse> callback) {
+        getAsync(httpUrl, null, callback);
+    }
+
+    public static void postAsync(String httpUrl, byte[] body, Consumer<NativeResponse> callback) {
+        postAsync(httpUrl, body, null, callback);
+    }
+
+    public static void putAsync(String httpUrl, byte[] body, Consumer<NativeResponse> callback) {
+        putAsync(httpUrl, body, null, callback);
+    }
+
+    public static void deleteAsync(String httpUrl, byte[] body, Consumer<NativeResponse> callback) {
+        deleteAsync(httpUrl, body, null, callback);
+    }
+
+    public static void getAsync(String httpUrl, Options opt, Consumer<NativeResponse> callback) {
+        requestAsync("GET", httpUrl, null, opt, callback);
+    }
+
+    public static void postAsync(String httpUrl, byte[] body, Options opt, Consumer<NativeResponse> callback) {
+    	requestAsync("POST", httpUrl, body, opt, callback);
+    }
+
+    public static void putAsync(String httpUrl, byte[] body, Options opt, Consumer<NativeResponse> callback) {
+        requestAsync("PUT", httpUrl, body, opt, callback);
+    }
+
+    public static void deleteAsync(String httpUrl, byte[] body, Options opt, Consumer<NativeResponse> callback) {
+        requestAsync("DELETE", httpUrl, body, opt, callback);
     }
 	
 	public static NativeResponse request(String method, String httpUrl, byte[] body, Options opt) {
-		if(method == null || httpUrl == null) {
-			throw new NullPointerException();
-		}
 		if(opt == null) {
 			opt = new Options();
 		}
@@ -81,20 +112,7 @@ public class NativeRequest {
 			body = new byte[0];
 		}
 		HttpUrl url = HttpUrl.parse(httpUrl);
-		
-		SslContext ctx = null;
-		if(url.isHttps()) {
-			ctx = new SslContext(true, opt.isVerifyCert(), opt.getSslProtocol(), opt.getSslProtocol());
-			if(opt.verifyCert) {
-				if(opt.caPath() != null) {
-					ctx.trustCertificateAuth(opt.readSslCrt(opt.caPath()));
-				}
-				if(opt.crtPath() != null && opt.keyPath() != null) {
-					ctx.useCertificate(opt.readSslCrt(opt.crtPath()), opt.readSslCrt(opt.keyPath()));
-				}
-			}
-		}
-		Channel ch = new Channel(ctx);
+		Channel ch = prepareChannel(method, httpUrl, body, opt, url);
 		try {
 			HandlerList handlers = new HandlerList();
 			HttpRequestHandler handler = 
@@ -112,9 +130,49 @@ public class NativeRequest {
 		}
 	}
 	
-	   
-	private static byte[] getRequestAsBytes(String method, HttpUrl url, Options ctxion, byte[] body) {
-		Map<String, String> headers = ctxion.getHeaders();
+	public static void requestAsync(String method, String httpUrl, byte[] body, Options opt, Consumer<NativeResponse> callback) {
+		if(opt == null) {
+			opt = new Options();
+		}
+		if(body == null) {
+			body = new byte[0];
+		}
+		HttpUrl url = HttpUrl.parse(httpUrl);
+		Channel ch = prepareChannel(method, httpUrl, body, opt, url);
+		try {
+			HandlerList handlers = new HandlerList();
+			HttpAsyncRequestHandler handler = 
+					new HttpAsyncRequestHandler(new Bytes(getRequestAsBytes(method, url, opt, body)), callback); 
+			handlers.add(handler);
+			ch.handlerList(handlers);
+			ch.connect(url.getHost(), url.getPort());
+		} finally {
+			ch.close();
+		}
+	}
+	
+	private static Channel prepareChannel(String method, String httpUrl, byte[] body, Options opt, HttpUrl url) {
+		if(method == null || httpUrl == null) {
+			throw new NullPointerException();
+		}
+		
+		SslContext ctx = null;
+		if(url.isHttps()) {
+			ctx = new SslContext(true, opt.isVerifyCert(), opt.getSslProtocol(), opt.getSslProtocol());
+			if(opt.verifyCert) {
+				if(opt.caPath() != null) {
+					ctx.trustCertificateAuth(opt.readSslCrt(opt.caPath()));
+				}
+				if(opt.crtPath() != null && opt.keyPath() != null) {
+					ctx.useCertificate(opt.readSslCrt(opt.crtPath()), opt.readSslCrt(opt.keyPath()));
+				}
+			}
+		}
+		return new Channel(ctx);
+	}
+	 
+	private static byte[] getRequestAsBytes(String method, HttpUrl url, Options opt, byte[] body) {
+		Map<String, String> headers = opt.getHeaders();
 		Map<String, String> newHeaders = new HashMap<>(DEFAULT_HEADER_SIZE);
 		if(headers != null && headers.size() > 0) {
 			for(Map.Entry<String, String> header: headers.entrySet()) {
@@ -139,7 +197,7 @@ public class NativeRequest {
 		}
 		if(body != null) {
 			sb.append(HEADER_CONTENT_LENGTH).append(COLON).append(SPACE).append(body.length).append(ENTER);
-			sb.append(HEADER_CONTENT_ENCODE).append(COLON).append(SPACE).append(ctxion.getEncoding()).append(ENTER);
+			sb.append(HEADER_CONTENT_ENCODE).append(COLON).append(SPACE).append(opt.getEncoding()).append(ENTER);
 		}
 		sb.append(ENTER);
 		byte[] headerBytes = sb.toString().getBytes();
@@ -410,6 +468,52 @@ public class NativeRequest {
 	}
 	
 
+	private static class HttpAsyncRequestHandler implements Handler {
+
+		NativeResponse res = new NativeResponse();
+		Bytes requestData;
+		Consumer<NativeResponse> callback;
+		
+		
+		HttpAsyncRequestHandler(Bytes requestData, Consumer<NativeResponse> callback) {
+			this.requestData = requestData;
+			this.callback = callback;
+		}
+		
+		@Override
+		public void onRead(ChannelContext ctx, Bytes input) {
+			if(res.headerParsed()) {
+				res.parseContent(input.readAll());
+			} else {
+				res.parseHead(input.readAll());
+			}
+			if(res.finished()) {
+				if(this.callback != null) {
+					this.callback.accept(res);
+				}
+				ctx.close();
+			}
+		}
+		@Override
+		public void onWrite(ChannelContext ctx, Bytes output) {}
+		@Override
+		public void onError(ChannelContext ctx, Throwable t) {
+			t.printStackTrace();
+		}
+		@Override
+		public void onConnect(ChannelContext ctx) {
+			ctx.toLastOnWrite(requestData);
+		}
+		@Override
+		public void onAccept(ChannelContext ctx) {}
+		@Override
+		public void onDisconnect(ChannelContext ctx) {}
+		@Override
+		public void onSslCertificate(ChannelContext ctx, byte[] cert) {}
+		
+	}
+	
+
 	private static class HttpRequestHandler implements Handler {
 
 		NativeResponse res = new NativeResponse();
@@ -460,7 +564,6 @@ public class NativeRequest {
 		}
 		@Override
 		public void onError(ChannelContext ctx, Throwable t) {
-			t.printStackTrace();
 			err = new HttpException(HttpStatus.SERVICE_UNAVAILABLE.getCode(), t.getMessage());
 			synchronized(lock) {
 				lock.notifyAll();
