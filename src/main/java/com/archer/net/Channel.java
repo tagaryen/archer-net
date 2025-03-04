@@ -1,5 +1,7 @@
 package com.archer.net;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 import com.archer.net.ssl.SslContext;
 
 public class Channel {
@@ -18,17 +20,23 @@ public class Channel {
 
 	protected static native void close(long channelfd);
 	
+	protected static native void startEventloop();
+	
+	protected static native void stopEventloop();
+	
 	protected void onConnect() {
 		if(handlerList != null) {
 			handlerList.onConnect(this);
 		}
 	}
 	protected void onRead(byte[] data) {
+		active = true;
 		if(handlerList != null) {
 			handlerList.onRead(this, data);
 		}
 	}
 	protected void onDisconnect() {
+		active = false;
 		if(handlerList != null) {
 			handlerList.onDisconnect(this);
 		}
@@ -53,6 +61,7 @@ public class Channel {
 	/*******above are native methods********/
 	
 	private static final long TIMEOUT = 3500;
+	private static AtomicInteger channelCount = new AtomicInteger(0);
 	
 	private long channelfd;
 	private volatile boolean active;
@@ -116,14 +125,15 @@ public class Channel {
 			}
 			sslCtx.setSsl(channelfd);
 		}
-		this.future = new ChannelFuture(host+port) {
-			public void apply() {
-				active = true;
-				connect(channelfd, host.getBytes(), port);
-				active = false;
-			}
-		};
-		this.future.start();
+		connect(channelfd, host.getBytes(), port);
+		if(channelCount.incrementAndGet() == 1) {
+			this.future = new ChannelFuture(host+port) {
+				public void apply() {
+					startEventloop();
+				}
+			};
+			this.future.start();
+		}
 	}
 	
 	public void write(byte[] data) {
@@ -136,6 +146,11 @@ public class Channel {
 		}
 		active = false;
 		close(channelfd);
+		if(clientSide) {
+			if(channelCount.decrementAndGet() == 0) {
+				stopEventloop();
+			}
+		}
 	}
 	
 	public String remoteHost() {

@@ -7,7 +7,13 @@ public class HttpTest {
 	
 	public static void baiduTest() {
 		NativeRequest.getAsync("https://www.baidu.com/", (res) -> {
-			System.out.println(new String(res.getBody()));
+			System.out.println("baidu res = " + res.getStatus());
+		});
+		NativeRequest.getAsync("https://cn.bing.com/", (res) -> {
+			System.out.println("cn.bing res = " + res.getStatus());
+		});
+		NativeRequest.getAsync("https://www.bing.com/", (res) -> {
+			System.out.println("www.bing res = " + res.getStatus());
 		});
 	}
 	
@@ -18,6 +24,6 @@ public class HttpTest {
 	}
 	
 	public static void main(String args[]) {
-		knownTest();
+		baiduTest();
 	}
 }
