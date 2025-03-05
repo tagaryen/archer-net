@@ -109,7 +109,9 @@ public class ServerChannel {
 		}
 		running = false;
 		close(serverfd);
-		pool.stop();
+		if(pool != null) {
+			pool.stop();
+		}
 	}
 	
 	protected long getServerfd() {

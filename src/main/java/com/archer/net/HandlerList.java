@@ -15,47 +15,46 @@ public final class HandlerList {
 	public HandlerList() {
     	this.container = new ChannelContextContainer();
 	}
-	public HandlerList(ThreadPool pool) {
-		this.pool = pool;
-    	this.container = new ChannelContextContainer();
-	}
 	
-	public HandlerList threadPool(ThreadPool pool) {
+	protected HandlerList threadPool(ThreadPool pool) {
 		this.pool = pool;
 		return this;
 	}
 	
-	public void addFirst(Handler handler) {
+	public HandlerList addFirst(Handler handler) {
 		if(handler == null) {
-			return ;
+			return this;
 		}
-		insert(0, handler);
+		return insert(0, handler);
 	}
 	
-	public void add(Handler ...handlers) {
+	public HandlerList add(Handler ...handlers) {
 		if(handlers == null || handlers.length <= 0) {
-			return ;
+			return this;
 		}
 		checkCap(handlers.length);
 		System.arraycopy(handlers, 0, this.handlers, pos, handlers.length);
 		pos += handlers.length;
+		return this;
 	}
 	
-	public void insert(int index, Handler handler) {
+	public HandlerList insert(int index, Handler handler) {
 		if(handler == null) {
-			return ;
+			return this;
 		}
 		checkCap(1);
 		System.arraycopy(handlers, index, handlers, index + 1, pos - index);
 		handlers[index] = handler;
 		pos++;
+		return this;
 	}
 	
-	public void remove(int index) {
+	public HandlerList remove(int index) {
 		if(0 <= index && index < pos) {
 			System.arraycopy(handlers, index + 1, handlers, index, pos - index - 1);
 			pos--;
 		}
+		return this;
 	}
 	
 	public Handler at(int index) {

@@ -36,7 +36,12 @@ public class Channel {
 		}
 	}
 	protected void onDisconnect() {
-		active = false;
+		if(active && clientSide) {
+			active = false;
+			if(channelCount.decrementAndGet() == 0) {
+				stopEventloop();
+			}
+		}
 		if(handlerList != null) {
 			handlerList.onDisconnect(this);
 		}

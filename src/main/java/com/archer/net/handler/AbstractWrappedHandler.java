@@ -6,8 +6,11 @@ import com.archer.net.ChannelContext;
 public abstract class AbstractWrappedHandler<I> implements Handler {
 	
 	@Override
+	public void onAccept(ChannelContext ctx) {}
+	
+	@Override
 	public void onRead(ChannelContext ctx, Bytes in) {
-		onMessage(ctx, decode(in));
+		onMessage(ctx, decodeInput(in));
 	}
 
 	@Override
@@ -22,6 +25,6 @@ public abstract class AbstractWrappedHandler<I> implements Handler {
 	
 	public abstract void onMessage(ChannelContext ctx, I input);
 	
-	public abstract I decode(Bytes in);
+	public abstract I decodeInput(Bytes in);
 	
 }
