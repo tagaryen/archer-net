@@ -125,7 +125,6 @@ public final class HandlerList {
 	}
 
 	protected void onError(Channel channel, byte[] msg) {
-		channel.setActive(false);
 		ChannelContext ctx = findChannelContext(channel);
 		String errMsg = new String(msg).trim();
 		try {

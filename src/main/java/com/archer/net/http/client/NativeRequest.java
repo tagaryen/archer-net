@@ -72,36 +72,44 @@ public class NativeRequest {
     }
     
 
-    public static void getAsync(String httpUrl, Consumer<NativeResponse> callback) {
-        getAsync(httpUrl, null, callback);
+    public static void getAsync(String httpUrl, 
+    		Consumer<NativeResponse> callback, Consumer<Throwable> exceptionCallback) {
+        getAsync(httpUrl, null, callback, exceptionCallback);
     }
 
-    public static void postAsync(String httpUrl, byte[] body, Consumer<NativeResponse> callback) {
-        postAsync(httpUrl, body, null, callback);
+    public static void postAsync(String httpUrl, byte[] body, 
+    		Consumer<NativeResponse> callback, Consumer<Throwable> exceptionCallback) {
+        postAsync(httpUrl, body, null, callback, exceptionCallback);
     }
 
-    public static void putAsync(String httpUrl, byte[] body, Consumer<NativeResponse> callback) {
-        putAsync(httpUrl, body, null, callback);
+    public static void putAsync(String httpUrl, byte[] body, 
+    		Consumer<NativeResponse> callback, Consumer<Throwable> exceptionCallback) {
+        putAsync(httpUrl, body, null, callback, exceptionCallback);
     }
 
-    public static void deleteAsync(String httpUrl, byte[] body, Consumer<NativeResponse> callback) {
-        deleteAsync(httpUrl, body, null, callback);
+    public static void deleteAsync(String httpUrl, byte[] body, 
+    		Consumer<NativeResponse> callback, Consumer<Throwable> exceptionCallback) {
+        deleteAsync(httpUrl, body, null, callback, exceptionCallback);
     }
 
-    public static void getAsync(String httpUrl, Options opt, Consumer<NativeResponse> callback) {
-        requestAsync("GET", httpUrl, null, opt, callback);
+    public static void getAsync(String httpUrl, Options opt, 
+    		Consumer<NativeResponse> callback, Consumer<Throwable> exceptionCallback) {
+        requestAsync("GET", httpUrl, null, opt, callback, exceptionCallback);
     }
 
-    public static void postAsync(String httpUrl, byte[] body, Options opt, Consumer<NativeResponse> callback) {
-    	requestAsync("POST", httpUrl, body, opt, callback);
+    public static void postAsync(String httpUrl, byte[] body, Options opt, 
+    		Consumer<NativeResponse> callback, Consumer<Throwable> exceptionCallback) {
+    	requestAsync("POST", httpUrl, body, opt, callback, exceptionCallback);
     }
 
-    public static void putAsync(String httpUrl, byte[] body, Options opt, Consumer<NativeResponse> callback) {
-        requestAsync("PUT", httpUrl, body, opt, callback);
+    public static void putAsync(String httpUrl, byte[] body, Options opt, 
+    		Consumer<NativeResponse> callback, Consumer<Throwable> exceptionCallback) {
+        requestAsync("PUT", httpUrl, body, opt, callback, exceptionCallback);
     }
 
-    public static void deleteAsync(String httpUrl, byte[] body, Options opt, Consumer<NativeResponse> callback) {
-        requestAsync("DELETE", httpUrl, body, opt, callback);
+    public static void deleteAsync(String httpUrl, byte[] body, Options opt, 
+    		Consumer<NativeResponse> callback, Consumer<Throwable> exceptionCallback) {
+        requestAsync("DELETE", httpUrl, body, opt, callback, exceptionCallback);
     }
 	
 	public static NativeResponse request(String method, String httpUrl, byte[] body, Options opt) {
@@ -130,7 +138,8 @@ public class NativeRequest {
 		}
 	}
 	
-	public static void requestAsync(String method, String httpUrl, byte[] body, Options opt, Consumer<NativeResponse> callback) {
+	public static void requestAsync(String method, String httpUrl, byte[] body, Options opt, 
+			Consumer<NativeResponse> callback, Consumer<Throwable> exceptionCallback) {
 		if(opt == null) {
 			opt = new Options();
 		}
@@ -139,16 +148,13 @@ public class NativeRequest {
 		}
 		HttpUrl url = HttpUrl.parse(httpUrl);
 		Channel ch = prepareChannel(method, httpUrl, body, opt, url);
-		try {
-			HandlerList handlers = new HandlerList();
-			HttpAsyncRequestHandler handler = 
-					new HttpAsyncRequestHandler(new Bytes(getRequestAsBytes(method, url, opt, body)), callback); 
-			handlers.add(handler);
-			ch.handlerList(handlers);
-			ch.connect(url.getHost(), url.getPort());
-		} finally {
-			ch.close();
-		}
+
+		HandlerList handlers = new HandlerList();
+		HttpAsyncRequestHandler handler = 
+				new HttpAsyncRequestHandler(new Bytes(getRequestAsBytes(method, url, opt, body)), callback, exceptionCallback); 
+		handlers.add(handler);
+		ch.handlerList(handlers);
+		ch.connect(url.getHost(), url.getPort());
 	}
 	
 	private static Channel prepareChannel(String method, String httpUrl, byte[] body, Options opt, HttpUrl url) {
@@ -473,11 +479,13 @@ public class NativeRequest {
 		NativeResponse res = new NativeResponse();
 		Bytes requestData;
 		Consumer<NativeResponse> callback;
+		Consumer<Throwable> exceptionCallback;
 		
 		
-		HttpAsyncRequestHandler(Bytes requestData, Consumer<NativeResponse> callback) {
+		HttpAsyncRequestHandler(Bytes requestData, Consumer<NativeResponse> callback, Consumer<Throwable> exceptionCallback) {
 			this.requestData = requestData;
 			this.callback = callback;
+			this.exceptionCallback = exceptionCallback;
 		}
 		
 		@Override
@@ -489,7 +497,15 @@ public class NativeRequest {
 			}
 			if(res.finished()) {
 				if(this.callback != null) {
-					this.callback.accept(res);
+					try {
+						this.callback.accept(res);
+					} catch(Exception e) {
+						if(this.exceptionCallback != null) {
+							this.exceptionCallback.accept(e);
+						} else {
+							e.printStackTrace();
+						}
+					}
 				}
 				ctx.close();
 			}
@@ -498,7 +514,11 @@ public class NativeRequest {
 		public void onWrite(ChannelContext ctx, Bytes output) {}
 		@Override
 		public void onError(ChannelContext ctx, Throwable t) {
-			t.printStackTrace();
+			if(this.exceptionCallback != null) {
+				this.exceptionCallback.accept(t);
+			} else {
+				t.printStackTrace();
+			}
 		}
 		@Override
 		public void onConnect(ChannelContext ctx) {

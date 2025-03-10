@@ -183,9 +183,7 @@ public class P2PChannel {
         private final String namePrefix;
 
         public NamedThreadFactory(String namePrefix) {
-            SecurityManager s = System.getSecurityManager();
-            group = (s != null) ? s.getThreadGroup() :
-                                  Thread.currentThread().getThreadGroup();
+            group = Thread.currentThread().getThreadGroup();
             this.namePrefix = namePrefix;
         }
 

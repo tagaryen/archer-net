@@ -25,12 +25,12 @@ public class Channel {
 	protected static native void stopEventloop();
 	
 	protected void onConnect() {
+		active = true;
 		if(handlerList != null) {
 			handlerList.onConnect(this);
 		}
 	}
 	protected void onRead(byte[] data) {
-		active = true;
 		if(handlerList != null) {
 			handlerList.onRead(this, data);
 		}
@@ -47,6 +47,12 @@ public class Channel {
 		}
 	}
 	protected void onError(byte[] msg) {
+		if(active && clientSide) {
+			active = false;
+			if(channelCount.decrementAndGet() == 0) {
+				stopEventloop();
+			}
+		}
 		if(handlerList != null) {
 			handlerList.onError(this, msg);
 		}
@@ -58,7 +64,6 @@ public class Channel {
 	}
 	
 	protected void throwError(byte[] msg) {
-		active = false;
 		throw new ChannelException(new String(msg));
 	}
 	
@@ -130,6 +135,7 @@ public class Channel {
 			}
 			sslCtx.setSsl(channelfd);
 		}
+		active = true;
 		connect(channelfd, host.getBytes(), port);
 		if(channelCount.incrementAndGet() == 1) {
 			this.future = new ChannelFuture(host+port) {
