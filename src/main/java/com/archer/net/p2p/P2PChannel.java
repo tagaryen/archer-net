@@ -56,8 +56,8 @@ public class P2PChannel {
 	}
 	
 	
-	public void start(P2PMessageEvent event) {
-		handlerList.add(new P2PBaseHandler(this, event));
+	public void start(P2PMessageHandler handler) {
+		handlerList.add(new P2PBaseHandler(this, handler));
 		server = new ServerChannel(sslCtx);
 		server.handlerList(handlerList);
 		server.listen(host, port);
@@ -89,10 +89,6 @@ public class P2PChannel {
 			if(ok) {
 				synchronized(channelsLock) {
 					this.peers.add(peer);
-					Channel ch = new Channel(sslCtx);
-					ch.handlerList(handlerList);
-					channels.add(ch);
-					ch.connect(peer.host(), peer.port());
 				}
 			}
 		}
@@ -112,11 +108,28 @@ public class P2PChannel {
 	private void startReconnectScheduler() {
 		reconnectSchedule.scheduleAtFixedRate(
                 () -> {
-                	for(Channel channel: channels) {
-                		if(!channel.isActive()) {
-                			channel.connect(channel.remoteHost(), channel.remotePort());
-                		}
-                	}
+    				synchronized(channelsLock) {
+                    	for(Channel channel: channels) {
+                    		if(!channel.isActive()) {
+                    			channel.connect(channel.remoteHost(), channel.remotePort());
+                    		}
+                    	}
+                    	boolean exists;
+    					for(EndPoint peer: peers) {
+    						exists = false;
+                        	for(Channel channel: channels) {
+                        		if(channel.remoteHost().equals(peer.host()) && channel.remotePort() == peer.port()) {
+                        			exists = true;
+                        		}
+                        	}
+                        	if(!exists) {
+                				Channel ch = new Channel(sslCtx);
+                				ch.handlerList(handlerList);
+                				channels.add(ch);
+                				ch.connect(peer.host(), peer.port());
+                        	}
+    					}
+    				}
                 },
                 RECONNECT_DELAY,
                 RECONNECT_DELAY,

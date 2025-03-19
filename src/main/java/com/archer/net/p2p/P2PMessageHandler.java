@@ -2,7 +2,7 @@ package com.archer.net.p2p;
 
 import com.archer.net.Bytes;
 
-public interface P2PMessageEvent {
+public interface P2PMessageHandler {
 	
 	void onConnect(PeerChannel channel);
 	

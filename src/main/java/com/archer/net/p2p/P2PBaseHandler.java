@@ -20,10 +20,10 @@ public class P2PBaseHandler implements Handler {
 	private static ConcurrentHashMap<String, String> serverEndpointMap = new ConcurrentHashMap<>();
 	
 	private P2PChannel p2pChannel;
-	private P2PMessageEvent event;
+	private P2PMessageHandler handler;
 	
-	public P2PBaseHandler(P2PChannel p2pChannel, P2PMessageEvent event) {
-		this.event = event;
+	public P2PBaseHandler(P2PChannel p2pChannel, P2PMessageHandler handler) {
+		this.handler = handler;
 		this.p2pChannel = p2pChannel;
 		p2pChannel.setP2PBaseHandler(this);
 	}
@@ -44,7 +44,7 @@ public class P2PBaseHandler implements Handler {
 
 			PeerChannel peerChannel = clientNewChannel(ctx);
 			if(!peerChannel.getAndSetConnected()) {
-				event.onConnect(peerChannel);
+				handler.onConnect(peerChannel);
 			}
 		}
 	}
@@ -62,14 +62,14 @@ public class P2PBaseHandler implements Handler {
     				int port = msg.getData().readInt32();
     				channel = serverNewChannel(ctx, port);
     				if(!channel.getAndSetConnected()) {
-    					event.onConnect(channel);
+    					handler.onConnect(channel);
     				}
     			} else {
     				channel = getChannel(ctx);
     				if(channel == null) {
     					ctx.close();
     				} else {
-        				event.onMessage(channel, msg.getData());
+        				handler.onMessage(channel, msg.getData());
     				}
     			}
             }
@@ -88,7 +88,7 @@ public class P2PBaseHandler implements Handler {
 		if(channel == null) {
 			ctx.close();
 		} else {
-			event.onDisconnect(channel);
+			handler.onDisconnect(channel);
 			channel.close();
 		}
 		String clientEndpoint = channel.getRemoteHost() + ":" + channel.getRemotePort();
@@ -105,7 +105,7 @@ public class P2PBaseHandler implements Handler {
 		if(channel == null) {
 			ctx.close();
 		} else {
-			event.onError(channel, t);
+			handler.onError(channel, t);
 		}
 	}
 	
