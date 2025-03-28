@@ -75,6 +75,7 @@ public class Channel {
 	
 	private long channelfd;
 	private volatile boolean active;
+	private volatile boolean started;
 	
 	private boolean clientSide;
 	
@@ -119,9 +120,10 @@ public class Channel {
 	}
 	
 	public synchronized void connect(String host, int port) {
-		if(active) {
+		if(started) {
 			return ;
 		}
+		started = true;
 		this.host = host;
 		this.port = port;
 		
@@ -152,6 +154,7 @@ public class Channel {
 	}
 	
 	public synchronized void close() {
+		started = false;
 		if(!active) {
 			return ;
 		}
