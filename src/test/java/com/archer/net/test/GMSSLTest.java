@@ -22,6 +22,7 @@ public class GMSSLTest {
 	public static void main(String args[]) {
 
 		SslContext sslctx = new SslContext(true, ProtocolVersion.TLS1_3_VERSION, ProtocolVersion.TLS1_1_VERSION);
+		sslctx.validateHostname("xuyi_node");
 		try {
 			String basePath = "D:\\projects\\javaProject\\maven\\archer-net\\crt\\gm_cert\\";
 			sslctx.trustCertificateAuth(Files.readAllBytes(Paths.get(basePath + "ca.crt")));
@@ -48,7 +49,9 @@ public class GMSSLTest {
 			}
 
 			@Override
-			public void onError(ChannelContext ctx, Throwable t) {}
+			public void onError(ChannelContext ctx, Throwable t) {
+				t.printStackTrace();
+			}
 
 			@Override
 			public void onMessage(ChannelContext ctx, MessageA input) {}

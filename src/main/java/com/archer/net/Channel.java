@@ -75,7 +75,6 @@ public class Channel {
 	
 	private long channelfd;
 	private volatile boolean active;
-	private volatile boolean started;
 	
 	private boolean clientSide;
 	
@@ -120,10 +119,9 @@ public class Channel {
 	}
 	
 	public synchronized void connect(String host, int port) {
-		if(started) {
+		if(active) {
 			return ;
 		}
-		started = true;
 		this.host = host;
 		this.port = port;
 		
@@ -137,8 +135,8 @@ public class Channel {
 			}
 			sslCtx.setSsl(channelfd);
 		}
-		active = true;
 		connect(channelfd, host.getBytes(), port);
+		active = true;
 		if(channelCount.incrementAndGet() == 1) {
 			this.future = new ChannelFuture(host+port) {
 				public void apply() {
@@ -154,7 +152,6 @@ public class Channel {
 	}
 	
 	public synchronized void close() {
-		started = false;
 		if(!active) {
 			return ;
 		}
