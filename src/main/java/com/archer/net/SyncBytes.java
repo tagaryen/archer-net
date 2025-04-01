@@ -5,7 +5,7 @@ import java.util.Arrays;
 
 public class SyncBytes {
 	
-    public static final int BUFFER_SIZE = 1024 * 1024;
+    public static final int BUFFER_SIZE = 8 * 1024;
     
 	private byte[] data;
 	

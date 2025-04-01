@@ -7,7 +7,7 @@ import java.util.zip.Inflater;
 final class Compresser {
 	
 	private static final int LEVEL = 5;
-	private static final int BUF_SIZE = 1024 * 1024;
+	private static final int BUF_SIZE = 8 * 1024;
 	
 	public static byte[] compress(byte[] input) {
 		Deflater compresser = new Deflater(LEVEL);
