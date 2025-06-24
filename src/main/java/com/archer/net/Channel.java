@@ -1,5 +1,6 @@
 package com.archer.net;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.archer.net.ssl.SslContext;
@@ -25,7 +26,7 @@ public class Channel {
 	protected static native void stopEventloop();
 	
 	protected void onConnect() {
-		active = true;
+		active.compareAndSet(false, true);
 		if(handlerList != null) {
 			handlerList.onConnect(this);
 		}
@@ -36,9 +37,8 @@ public class Channel {
 		}
 	}
 	protected void onDisconnect() {
-		if(active && clientSide) {
-			active = false;
-			if(channelCount.decrementAndGet() == 0) {
+		if(active.compareAndSet(true, false) && clientSide) {
+			if(ifEnd()) {
 				stopEventloop();
 			}
 		}
@@ -47,9 +47,8 @@ public class Channel {
 		}
 	}
 	protected void onError(byte[] msg) {
-		if(active && clientSide) {
-			active = false;
-			if(channelCount.decrementAndGet() == 0) {
+		if(active.compareAndSet(true, false) && clientSide) {
+			if(ifEnd()) {
 				stopEventloop();
 			}
 		}
@@ -73,8 +72,38 @@ public class Channel {
 	private static final long TIMEOUT = 3500;
 	private static AtomicInteger channelCount = new AtomicInteger(0);
 	
+	private static boolean ifStart() {
+		int old;
+		boolean ok = false;
+		while(true) {
+			old = channelCount.get();
+			if(channelCount.compareAndSet(old, old+1)) {
+				if(old == 0) {
+					ok = true;
+				}
+				break;
+			}
+		}
+		return ok;
+	}
+	
+	private static boolean ifEnd() {
+		int old;
+		boolean ok = false;
+		while(true) {
+			old = channelCount.get();
+			if(channelCount.compareAndSet(old, old-1)) {
+				if(old <= 1) {
+					ok = true;
+				}
+				break;
+			}
+		}
+		return ok;
+	}
+	
 	private long channelfd;
-	private volatile boolean active;
+	private AtomicBoolean active = new AtomicBoolean(false);
 	
 	private boolean clientSide;
 	
@@ -97,7 +126,7 @@ public class Channel {
 	protected Channel(long channelfd, byte[] host, int port) {
 		this.channelfd = channelfd;
 		this.port = port;
-		this.active = true;
+		this.active.set(true);
 		this.clientSide = false;
 		this.host = new String(host);
 		setChannel(channelfd, this);
@@ -119,7 +148,7 @@ public class Channel {
 	}
 	
 	public synchronized void connect(String host, int port) {
-		if(active) {
+		if(active.get()) {
 			return ;
 		}
 		this.host = host;
@@ -136,8 +165,8 @@ public class Channel {
 			sslCtx.setSsl(channelfd);
 		}
 		connect(channelfd, host.getBytes(), port);
-		active = true;
-		if(channelCount.incrementAndGet() == 1) {
+		active.set(true);
+		if(ifStart()) {
 			this.future = new ChannelFuture(host+port) {
 				public void apply() {
 					startEventloop();
@@ -152,14 +181,12 @@ public class Channel {
 	}
 	
 	public synchronized void close() {
-		if(!active) {
-			return ;
-		}
-		active = false;
-		close(channelfd);
-		if(clientSide) {
-			if(channelCount.decrementAndGet() == 0) {
-				stopEventloop();
+		if(active.compareAndSet(true, false)) {
+			close(channelfd);
+			if(clientSide) {
+				if(ifEnd()) {
+					stopEventloop();
+				}
 			}
 		}
 	}
@@ -173,15 +200,11 @@ public class Channel {
 	}
 	
 	public boolean isActive() {
-		return active;
+		return active.get();
 	}
 	
 	public boolean isClientSide() {
 		return clientSide;
-	}
-	
-	protected void setActive(boolean active) {
-		this.active = active;
 	}
 	
 	protected long getChannelfd() {

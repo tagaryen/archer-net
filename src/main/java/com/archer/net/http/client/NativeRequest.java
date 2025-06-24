@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Consumer;
+
 import com.archer.net.Bytes;
 import com.archer.net.Channel;
 import com.archer.net.ChannelContext;
@@ -16,8 +17,8 @@ import com.archer.net.HandlerList;
 import com.archer.net.handler.Handler;
 import com.archer.net.http.HttpException;
 import com.archer.net.http.HttpStatus;
-import com.archer.net.ssl.SslContext;
 import com.archer.net.ssl.ProtocolVersion;
+import com.archer.net.ssl.SslContext;
 
 public class NativeRequest {
 
@@ -121,21 +122,34 @@ public class NativeRequest {
 		}
 		HttpUrl url = HttpUrl.parse(httpUrl);
 		Channel ch = prepareChannel(method, httpUrl, body, opt, url);
+		HttpRequestHandler handler = null;
+		HttpException t = null;
 		try {
 			HandlerList handlers = new HandlerList();
-			HttpRequestHandler handler = 
+			handler = 
 					new HttpRequestHandler(opt.getTimeout(), new Bytes(getRequestAsBytes(method, url, opt, body))); 
 			handlers.add(handler);
 			ch.handlerList(handlers);
 			ch.connect(url.getHost(), url.getPort());
 			handler.await();
 			if(!handler.res.finished() && handler.err != null) {
-				throw handler.err;
+				t = handler.err;
 			}
-			return handler.res;
-		} finally {
-			ch.close();
+		} catch(RuntimeException e) {
+			if(e instanceof HttpException) {
+				t = (HttpException) e;
+			} else {
+				t = new HttpException(HttpStatus.BAD_REQUEST, e);
+			}
 		}
+		ch.close();
+		if(t != null) {
+			throw t;
+		}
+		if(handler == null) {
+			throw new HttpException(HttpStatus.REQUEST_TIMEOUT); 
+		}
+		return handler.res;
 	}
 	
 	public static void requestAsync(String method, String httpUrl, byte[] body, Options opt, 
@@ -165,13 +179,14 @@ public class NativeRequest {
 		SslContext ctx = null;
 		if(url.isHttps()) {
 			ctx = new SslContext(true, opt.isVerifyCert(), opt.getSslProtocol(), opt.getSslProtocol());
-			if(opt.verifyCert) {
-				if(opt.caPath() != null) {
-					ctx.trustCertificateAuth(opt.readSslCrt(opt.caPath()));
-				}
-				if(opt.crtPath() != null && opt.keyPath() != null) {
-					ctx.useCertificate(opt.readSslCrt(opt.crtPath()), opt.readSslCrt(opt.keyPath()));
-				}
+			if(opt.ca() != null) {
+				ctx.trustCertificateAuth(opt.ca());
+			}
+			if(opt.crt() != null && opt.key() != null) {
+				ctx.useCertificate(opt.crt(), opt.key());
+			}
+			if(opt.enCrt() != null && opt.enKey() != null) {
+				ctx.useEncryptCertificate(opt.enCrt(), opt.enKey());
 			}
 		}
 		return new Channel(ctx);
@@ -233,11 +248,25 @@ public class NativeRequest {
 		
 		private String hostname = null;
 		
+		private byte[] ca;
+
+		private byte[] crt;
+
+		private byte[] key;
+
+		private byte[] enCrt;
+
+		private byte[] enKey;
+		
 		private String caPath;
 
 		private String crtPath;
 		
 		private String keyPath;
+
+		private String enCrtPath;
+		
+		private String enKeyPath;
     	
     	public Options() {}
     	
@@ -295,12 +324,58 @@ public class NativeRequest {
 			return this;
 		}
 
+		public byte[] ca() {
+			return ca;
+		}
+		
+		public Options ca(byte[] ca) {
+			this.ca = ca;
+			return this;
+		}
+
+		public byte[] crt() {
+			return crt;
+		}
+		
+		public Options crt(byte[] crt) {
+			this.crt = crt;
+			return this;
+		}
+		
+		public byte[] key() {
+			return key;
+		}
+
+		public Options key(byte[] key) {
+			this.key = key;
+			return this;
+		}
+		
+		public byte[] enCrt() {
+			return enCrt;
+		}
+		
+		public Options enCrt(byte[] enCrt) {
+			this.enCrt = enCrt;
+			return this;
+		}
+		
+		public byte[] enKey() {
+			return enKey;
+		}
+
+		public Options enKey(byte[] enKey) {
+			this.enKey = enKey;
+			return this;
+		}
+		
 		public String caPath() {
 			return caPath;
 		}
 		
 		public Options caPath(String caPath) {
 			this.caPath = caPath;
+			this.ca = readSslCrt(caPath);
 			return this;
 		}
 
@@ -310,6 +385,7 @@ public class NativeRequest {
 		
 		public Options crtPath(String crtPath) {
 			this.crtPath = crtPath;
+			this.crt = readSslCrt(crtPath);
 			return this;
 		}
 		
@@ -319,10 +395,31 @@ public class NativeRequest {
 
 		public Options keyPath(String keyPath) {
 			this.keyPath = keyPath;
+			this.key = readSslCrt(keyPath);
+			return this;
+		}
+
+		public String enCrtPath() {
+			return enCrtPath;
+		}
+		
+		public Options enCrtPath(String enCrtPath) {
+			this.enCrtPath = enCrtPath;
+			this.enCrt = readSslCrt(enCrtPath);
 			return this;
 		}
 		
-		public byte[] readSslCrt(String path) {
+		public String enKeyPath() {
+			return enKeyPath;
+		}
+
+		public Options enKeyPath(String enKeyPath) {
+			this.enKeyPath = enKeyPath;
+			this.enKey = readSslCrt(enKeyPath);
+			return this;
+		}
+		
+		private byte[] readSslCrt(String path) {
 			Path p = Paths.get(path);
 			if(!Files.exists(p)) {
 				throw new HttpException(HttpStatus.EXPECTATION_FAILED.getCode(),
@@ -481,7 +578,6 @@ public class NativeRequest {
 		Consumer<NativeResponse> callback;
 		Consumer<Throwable> exceptionCallback;
 		
-		
 		HttpAsyncRequestHandler(Bytes requestData, Consumer<NativeResponse> callback, Consumer<Throwable> exceptionCallback) {
 			this.requestData = requestData;
 			this.callback = callback;
@@ -496,6 +592,8 @@ public class NativeRequest {
 				res.parseHead(input.readAll());
 			}
 			if(res.finished()) {
+				ctx.close();
+				
 				if(this.callback != null) {
 					try {
 						this.callback.accept(res);
@@ -507,7 +605,6 @@ public class NativeRequest {
 						}
 					}
 				}
-				ctx.close();
 			}
 		}
 		@Override
@@ -542,8 +639,6 @@ public class NativeRequest {
 		HttpException err;
 		long timeout;
 		
-		
-		
 		HttpRequestHandler(long timeout, Bytes requestData) {
 			this.timeout = timeout;
 			this.requestData = requestData;
@@ -551,7 +646,7 @@ public class NativeRequest {
 		
 		public void await() {
 			if(err != null) {
-				throw err;
+				return ;
 			}
 			long start = System.currentTimeMillis();
 			synchronized(lock) {
@@ -561,7 +656,13 @@ public class NativeRequest {
 			}
 			long end = System.currentTimeMillis();
 			if(end - start >= timeout) {
-				throw new HttpException(HttpStatus.BAD_REQUEST.getCode(), "connect timeout");
+				err = new HttpException(HttpStatus.BAD_REQUEST.getCode(), "connect timeout");
+			}
+		}
+		
+		public void notifyLock() {
+			synchronized(lock) {
+				lock.notifyAll();
 			}
 		}
 		
@@ -573,9 +674,7 @@ public class NativeRequest {
 				res.parseHead(input.readAll());
 			}
 			if(res.finished()) {
-				synchronized(lock) {
-					lock.notifyAll();
-				}
+				notifyLock();
 			}
 		}
 		@Override
@@ -584,10 +683,8 @@ public class NativeRequest {
 		}
 		@Override
 		public void onError(ChannelContext ctx, Throwable t) {
-			err = new HttpException(HttpStatus.SERVICE_UNAVAILABLE.getCode(), t.getMessage());
-			synchronized(lock) {
-				lock.notifyAll();
-			}
+			err = new HttpException(HttpStatus.SERVICE_UNAVAILABLE, t);
+			notifyLock();
 		}
 		@Override
 		public void onConnect(ChannelContext ctx) {
@@ -597,9 +694,7 @@ public class NativeRequest {
 		public void onAccept(ChannelContext ctx) {}
 		@Override
 		public void onDisconnect(ChannelContext ctx) {
-			synchronized(lock) {
-				lock.notifyAll();
-			}
+			notifyLock();
 		}
 		@Override
 		public void onSslCertificate(ChannelContext ctx, byte[] cert) {}

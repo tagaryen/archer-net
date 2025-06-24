@@ -1,6 +1,10 @@
 package com.archer.net.test;
 
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+
 import com.archer.net.http.client.NativeRequest;
+import com.archer.net.http.client.NativeResponse;
 
 public class HttpTest {
 	
@@ -23,12 +27,26 @@ public class HttpTest {
 		}, null);
 	}
 	
+	public static void sslTest() {
+		NativeRequest.Options opts = new NativeRequest.Options();
+		HashMap<String, String> headers = new HashMap<>();
+		headers.put("Token","OKCjKBw6I8ONFj2ZCrjNQJQKrsjQRc3egsVdPfMbLbUsPK7dmbh5B/OXZdyKOLPIUQwen7So1WIPooGwnRVeSYI/WUhVmkq2lWC4BXhx5UJKhnD2Uf22K//AUqYrbvGScgI08kjgnAq0fIvGnNqhL/JpSvjn2YhfB82SHIaYBJStpUmtVFkj+JHPOzJGJvaFlha/oel5p/wgww0rOxUOgq4EZOiIirh+YdsVCVOSSQUNHiCMLY2ZYH5eZEsbPyMtCCQnHc6R7vVs9lY46pcFFDBcd/VTLsWpt0WVmYxY3Iv1GDda7fdFNwEqxIP7vq1tdR8HWJR7BfGOHaByuccjBA==");
+		headers.put("Workspace", "2025061300010400001239");
+		headers.put("Content-Type", "application/json");
+		opts.headers(headers).verifyCert(false);
+		String body = "{\"content\":{\"workspaceId\":\"2025061300010400001239\"},\"method\":\"gaia.openapi.mine.workspace.getOne\"}";
+		
+		NativeResponse res = NativeRequest.post("https://gaiac-104.base.trustbe.cn/gaia/v1/janus/invoke/v1", body.getBytes(StandardCharsets.UTF_8), opts);
+		System.out.println(new String(res.getBody(), StandardCharsets.UTF_8));
+	}
+	
 	public static void main(String args[]) {
-		NativeRequest.getAsync("http://10.32.122.172:9610/nihao/hhh", (res) -> {
-			System.out.println("9610 *****");
-		}, null);
-		NativeRequest.getAsync("http://10.32.122.172:9617/nihao/hhh", (res) -> {
-			System.out.println("9617 *****");
-		}, null);
+//		NativeRequest.getAsync("http://10.32.122.172:9610/nihao/hhh", (res) -> {
+//			System.out.println("9610 *****");
+//		}, null);
+//		NativeRequest.getAsync("http://10.32.122.172:9617/nihao/hhh", (res) -> {
+//			System.out.println("9617 *****");
+//		}, null);
+		sslTest();
 	}
 }

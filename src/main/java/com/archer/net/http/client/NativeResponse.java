@@ -17,6 +17,7 @@ public class NativeResponse {
 
 	private static final char COLON = ':';
 	private static final char LF = '\n';
+	private static final char LR = '\r';
     private static final char SEM = ';';
 	private static final char[] PROTOCOL = { 'H', 'T', 'T', 'P', '/', '1', '.', '1', ' ' };
 
@@ -25,9 +26,6 @@ public class NativeResponse {
     
 	private static final int KEY_START = 1;
 	private static final int VAL_START = 2;
-
-	private static final int CHUNKED_LEN = 3;
-	private static final int CHUNKED_VAL = 4;
 
 	private static final String CONTENT_LENGTH = "content-length";
 	private static final String TRANSFER_ENCODING = "transfer-encoding";
@@ -198,29 +196,40 @@ public class NativeResponse {
 				}
 				isChunked = true;
 				s = i;
-				state = CHUNKED_LEN;
 				int len = 0;
 				for(; i < res.length; i++) {
-		    		if(state == CHUNKED_LEN && res[i] == LF) {
-		    			len = HexUtil.bytesToInt(res, s, i);
-		    			state = CHUNKED_VAL;
-		    			if(len == 0) {
+		    		if(res[i] == LF) {
+		    			len = HexUtil.bytesToInt(res, s, (res[i-1] == LR)?(i-1):i);
+	    				if(len == 0) {
 		    				finished = true;
 		    				break;
 		    			} else {
-		    				if(len + i + 1 > res.length) {
+		    				i++;
+		    				if(i >= res.length) {
+		    					remainBody.write(res, s, res.length - s);
+		    					break;
+		    				} else if(res[i + 1] == LR) {
+		    					i++;
+		    					if(i >= res.length) {
+			    					remainBody.write(res, s, res.length - s);
+			    					break;
+		    					}
+		    				}
+		    				if(len + i >= res.length) {
 		    					remainBody.write(res, s, res.length - s);
 		    					break;
 		    				} else {
-		    					chunkedBody.write(res, i + 1, len);
+		    					chunkedBody.write(res, i, len);
 		    				}
-		    				i += 1 + len;
+		    				i += len;
+		    				while(res[i] == LR || res[i] == LF) {
+		    					i++;
+		    					if(i >= res.length) {
+		    						break;
+		    					}
+		    				}
+		    				s = i;
 		    			}
-		    			continue;
-		    		}
-		    		if(state == CHUNKED_VAL && res[i] == LF) {
-		    			s = i + 1;
-		    			state = CHUNKED_LEN;
 		    		}
 				}
 			} else {
@@ -241,32 +250,45 @@ public class NativeResponse {
 		contentLock.lock();
 		try {
 			if(isChunked) {
-				int s = 0, len = 0, state = CHUNKED_LEN;
+				int s = 0, len = 0;
 				if(remainBody.available() > 0) {
 					remainBody.write(content);
 					content = remainBody.readAll();
 				}
 				for(int i = 0; i < content.length; i++) {
-		    		if(state == CHUNKED_LEN && content[i] == LF) {
-		    			len = HexUtil.bytesToInt(content, s, i - 1);
-		    			state = CHUNKED_VAL;
-		    			if(len == 0) {
+		    		if(content[i] == LF) {
+		    			len = HexUtil.bytesToInt(content, s, (content[i-1] == LR)?(i-1):i);
+	    				if(len == 0) {
 		    				finished = true;
 		    				break;
 		    			} else {
-		    				if(len + i + 1 > content.length) {
+		    				i++;
+		    				if(i >= content.length) {
+		    					remainBody.write(content, s, content.length - s);
+		    					break;
+		    				} else if(content[i + 1] == LR) {
+		    					i++;
+		    					if(i >= content.length) {
+			    					remainBody.write(content, s, content.length - s);
+			    					break;
+		    					}
+		    				}
+		    				
+		    				if(len + i >= content.length) {
 		    					remainBody.write(content, s, content.length - s);
 		    					break;
 		    				} else {
-		    					chunkedBody.write(content, i + 1, len);
+		    					chunkedBody.write(content, i, len);
 		    				}
-		    				i += 1 + len;
+		    				i += len;
+		    				while(content[i] == LR || content[i] == LF) {
+		    					i++;
+		    					if(i >= content.length) {
+		    						break;
+		    					}
+		    				}
+		    				s = i;
 		    			}
-		    			continue;
-		    		}
-		    		if(state == CHUNKED_VAL && content[i] == LF) {
-		    			s = i + 1;
-		    			state = CHUNKED_LEN;
 		    		}
 				}
 			} else {

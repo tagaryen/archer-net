@@ -91,7 +91,6 @@ public final class HandlerList {
 	}
 	
 	protected void onConnect(Channel channel) {
-		channel.setActive(true);
 		ChannelContext ctx = findChannelContext(channel);
 		try {
 			ctx.onConnect();
@@ -114,7 +113,6 @@ public final class HandlerList {
 	}
 	
 	protected void onDisconnect(Channel channel) {
-		channel.setActive(false);
 		ChannelContext ctx = findChannelContext(channel);
 		container.remove(channel);
 		try {
