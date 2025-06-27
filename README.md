@@ -6,7 +6,7 @@ maven:
     <dependency>
 	  <groupId>io.github.tagaryen</groupId>  
 	  <artifactId>archer-net</artifactId>  
-	  <version>1.3.16</version>  
+	  <version>1.3.17</version>  
 	</dependency>  
 ``` maven
 
