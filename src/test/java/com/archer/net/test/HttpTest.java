@@ -44,9 +44,9 @@ public class HttpTest {
 //		NativeRequest.getAsync("http://10.32.122.172:9610/nihao/hhh", (res) -> {
 //			System.out.println("9610 *****");
 //		}, null);
-//		NativeRequest.getAsync("http://10.32.122.172:9617/nihao/hhh", (res) -> {
-//			System.out.println("9617 *****");
-//		}, null);
-		sslTest();
+		NativeRequest.getAsync("https://www.zhihu.com", (res) -> {
+			System.out.println(new String(res.getBody()));
+		}, null);
+//		sslTest();
 	}
 }

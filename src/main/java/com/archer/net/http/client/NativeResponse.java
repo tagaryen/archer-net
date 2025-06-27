@@ -191,10 +191,10 @@ public class NativeResponse {
 					finished = true;
 				}
 			} else if(transferEncoding != null && CHUNKED.equals(transferEncoding)) {
+				isChunked = true;
 				if(i >= res.length) {
 					return ;
 				}
-				isChunked = true;
 				s = i;
 				int len = 0;
 				for(; i < res.length; i++) {

@@ -37,7 +37,7 @@ public class NativeRequest {
 	private static final String DEFAULT_CONTENT_ENCODE = "utf-8";
 	private static final String[] HEADER_KEY = {"user-agent", "connection", "content-type", "accept"};
 	private static final String[] HEADER_VAL = 
-		{"Java/"+System.getProperty("java.version"), "close", "application/x-www-form-urlencoded",
+		{"Archer-Net/Java", "close", "application/x-www-form-urlencoded",
 		 "text/html, image/gif, image/jpeg, *; q=.2, */*; q=.2"};
 
     public static NativeResponse get(String httpUrl) {
@@ -230,6 +230,7 @@ public class NativeRequest {
 		} else {
 			requestBytes = headerBytes;
 		}
+		System.out.println(new String(requestBytes));
 		return requestBytes;
 	}
 
