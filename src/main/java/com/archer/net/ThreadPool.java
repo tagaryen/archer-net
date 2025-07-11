@@ -2,7 +2,7 @@ package com.archer.net;
 
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-public class ThreadPool {
+class ThreadPool {
 	
 	private volatile boolean running;
 	private Thread[] threads;

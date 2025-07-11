@@ -1,9 +1,5 @@
 package com.archer.net.http.client;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Locale;
@@ -17,7 +13,6 @@ import com.archer.net.HandlerList;
 import com.archer.net.handler.Handler;
 import com.archer.net.http.HttpException;
 import com.archer.net.http.HttpStatus;
-import com.archer.net.ssl.ProtocolVersion;
 import com.archer.net.ssl.SslContext;
 
 public class NativeRequest {
@@ -178,15 +173,9 @@ public class NativeRequest {
 		
 		SslContext ctx = null;
 		if(url.isHttps()) {
-			ctx = new SslContext(true, opt.isVerifyCert(), opt.getSslProtocol(), opt.getSslProtocol());
-			if(opt.ca() != null) {
-				ctx.trustCertificateAuth(opt.ca());
-			}
-			if(opt.crt() != null && opt.key() != null) {
-				ctx.useCertificate(opt.crt(), opt.key());
-			}
-			if(opt.enCrt() != null && opt.enKey() != null) {
-				ctx.useEncryptCertificate(opt.enCrt(), opt.enKey());
+			ctx = opt.getSslContext();
+			if(ctx == null) {
+				ctx = new SslContext(true);
 			}
 		}
 		return new Channel(ctx);
@@ -230,53 +219,29 @@ public class NativeRequest {
 		} else {
 			requestBytes = headerBytes;
 		}
-		System.out.println(new String(requestBytes));
 		return requestBytes;
 	}
 
 	
 	public static class Options {
     	
-    	private boolean verifyCert = true;
+		private SslContext sslcontext;
+		
     	
     	private Map<String, String> headers = null;
     	
     	private int timeout = TIMEOUT;
-    	
-    	private ProtocolVersion sslProtocol = ProtocolVersion.TLS1_2_VERSION;
 
 		private String encoding = DEFAULT_CONTENT_ENCODE;
-		
-		private String hostname = null;
-		
-		private byte[] ca;
-
-		private byte[] crt;
-
-		private byte[] key;
-
-		private byte[] enCrt;
-
-		private byte[] enKey;
-		
-		private String caPath;
-
-		private String crtPath;
-		
-		private String keyPath;
-
-		private String enCrtPath;
-		
-		private String enKeyPath;
     	
     	public Options() {}
     	
-		public boolean isVerifyCert() {
-			return verifyCert;
+		public SslContext getSslContext() {
+			return sslcontext;
 		}
 
-		public Options verifyCert(boolean verifyCert) {
-			this.verifyCert = verifyCert;
+		public Options sslcontext(SslContext sslcontext) {
+			this.sslcontext = sslcontext;
 			return this;
 		}
 
@@ -305,133 +270,6 @@ public class NativeRequest {
 		public Options encoding(String encoding) {
 			this.encoding = encoding;
 			return this;
-		}
-
-		public ProtocolVersion getSslProtocol() {
-			return sslProtocol;
-		}
-		
-		public Options sslProtocol(ProtocolVersion sslProtocol) {
-			this.sslProtocol = sslProtocol;
-			return this;
-		}
-
-		public String getHostname() {
-			return hostname;
-		}
-
-		public Options hostname(String hostname) {
-			this.hostname = hostname;
-			return this;
-		}
-
-		public byte[] ca() {
-			return ca;
-		}
-		
-		public Options ca(byte[] ca) {
-			this.ca = ca;
-			return this;
-		}
-
-		public byte[] crt() {
-			return crt;
-		}
-		
-		public Options crt(byte[] crt) {
-			this.crt = crt;
-			return this;
-		}
-		
-		public byte[] key() {
-			return key;
-		}
-
-		public Options key(byte[] key) {
-			this.key = key;
-			return this;
-		}
-		
-		public byte[] enCrt() {
-			return enCrt;
-		}
-		
-		public Options enCrt(byte[] enCrt) {
-			this.enCrt = enCrt;
-			return this;
-		}
-		
-		public byte[] enKey() {
-			return enKey;
-		}
-
-		public Options enKey(byte[] enKey) {
-			this.enKey = enKey;
-			return this;
-		}
-		
-		public String caPath() {
-			return caPath;
-		}
-		
-		public Options caPath(String caPath) {
-			this.caPath = caPath;
-			this.ca = readSslCrt(caPath);
-			return this;
-		}
-
-		public String crtPath() {
-			return crtPath;
-		}
-		
-		public Options crtPath(String crtPath) {
-			this.crtPath = crtPath;
-			this.crt = readSslCrt(crtPath);
-			return this;
-		}
-		
-		public String keyPath() {
-			return keyPath;
-		}
-
-		public Options keyPath(String keyPath) {
-			this.keyPath = keyPath;
-			this.key = readSslCrt(keyPath);
-			return this;
-		}
-
-		public String enCrtPath() {
-			return enCrtPath;
-		}
-		
-		public Options enCrtPath(String enCrtPath) {
-			this.enCrtPath = enCrtPath;
-			this.enCrt = readSslCrt(enCrtPath);
-			return this;
-		}
-		
-		public String enKeyPath() {
-			return enKeyPath;
-		}
-
-		public Options enKeyPath(String enKeyPath) {
-			this.enKeyPath = enKeyPath;
-			this.enKey = readSslCrt(enKeyPath);
-			return this;
-		}
-		
-		private byte[] readSslCrt(String path) {
-			Path p = Paths.get(path);
-			if(!Files.exists(p)) {
-				throw new HttpException(HttpStatus.EXPECTATION_FAILED.getCode(),
-						"file not found " + p.toString());
-			}
-			try {
-				return Files.readAllBytes(p);
-			} catch (IOException e) {
-				throw new HttpException(HttpStatus.EXPECTATION_FAILED.getCode(),
-						"can not read file " + p.toString());
-			}
 		}
 	}
 	

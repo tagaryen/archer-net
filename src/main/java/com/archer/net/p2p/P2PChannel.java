@@ -109,25 +109,29 @@ public class P2PChannel {
 		reconnectSchedule.scheduleAtFixedRate(
                 () -> {
     				synchronized(channelsLock) {
-                    	for(Channel channel: channels) {
-                    		if(!channel.isActive()) {
-                    			channel.connect(channel.remoteHost(), channel.remotePort());
-                    		}
-                    	}
-                    	boolean exists;
-    					for(EndPoint peer: peers) {
-    						exists = false;
+    					try {
                         	for(Channel channel: channels) {
-                        		if(channel.remoteHost().equals(peer.host()) && channel.remotePort() == peer.port()) {
-                        			exists = true;
+                        		if(!channel.isActive()) {
+                        			channel.connect(channel.remoteHost(), channel.remotePort());
                         		}
                         	}
-                        	if(!exists) {
-                				Channel ch = new Channel(sslCtx);
-                				ch.handlerList(handlerList);
-                				channels.add(ch);
-                				ch.connect(peer.host(), peer.port());
-                        	}
+                        	boolean exists;
+        					for(EndPoint peer: peers) {
+        						exists = false;
+                            	for(Channel channel: channels) {
+                            		if(channel.remoteHost().equals(peer.host()) && channel.remotePort() == peer.port()) {
+                            			exists = true;
+                            		}
+                            	}
+                            	if(!exists) {
+                    				Channel ch = new Channel(sslCtx);
+                    				ch.handlerList(handlerList);
+                    				channels.add(ch);
+                    				ch.connect(peer.host(), peer.port());
+                            	}
+        					}
+    					} catch(Exception e) {
+    						e.printStackTrace();
     					}
     				}
                 },
