@@ -1,5 +1,6 @@
 package com.archer.net.http.multipart;
 
+import java.nio.charset.StandardCharsets;
 
 public class Multipart {
     private MultipartType type;
@@ -11,8 +12,25 @@ public class Multipart {
     private byte[] content;
     
     private String contentType;
+    
+    public Multipart() {}
+    
+    public Multipart(String name, String value) {
+    	this(name, null, value.getBytes(StandardCharsets.UTF_8), null);
+		this.type = MultipartType.TEXT;
+    }
+    
 
-    public MultipartType getType() {
+
+    public Multipart(String name, String fileName, byte[] content, String contentType) {
+		this.type = MultipartType.FILE;
+		this.name = name;
+		this.fileName = fileName;
+		this.content = content;
+		this.contentType = contentType;
+	}
+
+	public MultipartType getType() {
         return type;
     }
 

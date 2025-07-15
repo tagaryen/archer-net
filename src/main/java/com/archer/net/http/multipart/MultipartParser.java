@@ -1,31 +1,38 @@
 package com.archer.net.http.multipart;
 
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Random;
 
 import com.archer.net.http.HttpException;
 import com.archer.net.http.HttpRequest;
 import com.archer.net.http.HttpStatus;
 
 public class MultipartParser {
+
+	public static final String MULTIPART_HEADER = "multipart/form-data; boundary=";
 	
-	private static final String MULTIPART = "multipart/form-data; boundary=";
+	private static final Random r = new Random();
+	
 	private static final String PART_BODY = "\r\n\r\n";
 	private static final String LINE_LR = "\r\n";
 	private static final String HEADER_SEP = "; ";
 	private static final String CONTENT_DISPOS = "Content-Disposition: form-data; ";
 	private static final String CONTENT_TYPE = "Content-Type: ";
 	private static final String EQ = "=\"";
+	private static final String EQ_SEP = "\"; ";
+	private static final String EQ_END = "\"";
 	private static final String NAME = "name";
 	private static final String FILENAME = "filename";
 	
     public static List<Multipart> parse(HttpRequest req) throws UnsupportedEncodingException {
-    	if(!req.getContentType().startsWith(MULTIPART)) {
+    	if(!req.getContentType().startsWith(MULTIPART_HEADER)) {
     		throw new HttpException(HttpStatus.BAD_REQUEST.getCode(), 
     				"invalid mulipart formdata content-type:" + req.getContentType());
     	}
-        String sep = "--"+req.getContentType().substring(MULTIPART.length()).trim();
+        String sep = "--"+req.getContentType().substring(MULTIPART_HEADER.length()).trim();
         String bodyStr = new String(req.getContent(), req.getContentEncoding());
         String start = sep + "\r\n", end = sep + "--\r\n";
         if(!bodyStr.startsWith(start) || !bodyStr.endsWith(end)) {
@@ -34,6 +41,43 @@ public class MultipartParser {
         }
         bodyStr = bodyStr.substring(start.length(), bodyStr.length() - end.length());
         return parse(bodyStr, sep + "\r\n", req.getContentEncoding());
+    }
+    
+    public static String generateBoundary() {
+    	String s = "";
+    	for(int i = 0; i < 24; i++) {
+    		s += r.nextInt(10);
+    	}
+    	return "--------------------------" + s;
+    }
+    
+    public static String generateMultipartBody(List<Multipart> parts, String boundary) {
+    	String sep = "--" + boundary;
+    	StringBuilder sb = new StringBuilder();
+    	parts.sort((o1, o2) -> {
+    		if(o1.getType() == MultipartType.FILE && o1.getType() == MultipartType.TEXT) {
+    			return 1;
+    		}
+    		return -1;
+    	});
+    	for(Multipart p: parts) {
+    		sb.append(sep).append(LINE_LR);
+    		if(p.getType() == MultipartType.TEXT) {
+        		sb.append(CONTENT_DISPOS).append(NAME).append(EQ).append(p.getName()).append(EQ_END)
+        		.append(LINE_LR).append(LINE_LR)
+        		.append(new String(p.getContent(), StandardCharsets.UTF_8))
+        		.append(LINE_LR);
+    		} else {
+        		sb.append(CONTENT_DISPOS).append(NAME).append(EQ).append(p.getName()).append(EQ_SEP).append(FILENAME).append(EQ).append(p.getFileName()).append(EQ_END)
+        		.append(LINE_LR)
+        		.append(CONTENT_TYPE).append(p.getContentType())
+        		.append(LINE_LR).append(LINE_LR)
+        		.append(new String(p.getContent(), StandardCharsets.UTF_8))
+        		.append(LINE_LR);
+    		}
+    	}
+		sb.append(sep).append("--");
+    	return sb.toString();
     }
     
     private static List<Multipart> parse(String body, String sep, String encoding) throws UnsupportedEncodingException {
