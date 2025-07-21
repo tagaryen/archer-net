@@ -60,7 +60,14 @@ public class HttpTest {
 
 				@Override
 				public void handle(HttpRequest req, HttpResponse res) throws Exception {
-					
+//					System.out.println(req.getContentType());
+//					String bd = new String(req.getContent(), StandardCharsets.UTF_8);
+//					System.out.println(bd);
+//					for(Multipart p:  MultipartParser.parse(req)) {
+//						System.out.println("name: "+p.getName());
+//						System.out.println("filename: "+p.getFileName());
+//						System.out.println("content: "+new String(p.getContent()));
+//					}
 				}
 
 				@Override
@@ -76,7 +83,7 @@ public class HttpTest {
 		List<Multipart> parts = new ArrayList<>();
 		parts.add(new Multipart("Node-Id", "alice"));
 		try {
-			parts.add(new Multipart("file", "data.csv", Files.readAllBytes(Paths.get("D:/da.csv")), "application/csv"));
+			parts.add(new Multipart("file", "data1029.csv", Files.readAllBytes(Paths.get("D:/da.csv")), "application/csv"));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -85,11 +92,24 @@ public class HttpTest {
 
 		NativeRequest.Options opts = new NativeRequest.Options();
 		HashMap<String, String> headers = new HashMap<>();
-		headers.put("User-Token","1b32a1cdad2249a8a7e748499845abe6");
+		headers.put("User-Token","16fa3b5d0cf1422589909b282328ea0a");
 		headers.put("Content-Type", MultipartParser.MULTIPART_HEADER + boundary);
 		opts.headers(headers);
 		
-		NativeResponse res = NativeRequest.post("http://10.32.122.172:8080/api/v1alpha1/data/upload", body.getBytes(StandardCharsets.UTF_8), opts);
+		NativeResponse res = NativeRequest.post("http://10.32.122.172:32614/api/v1alpha1/data/upload", body.getBytes(StandardCharsets.UTF_8), opts);
+		System.out.println(new String(res.getBody(), StandardCharsets.UTF_8));
+	}
+	
+	
+	public static void listTest() {
+
+		NativeRequest.Options opts = new NativeRequest.Options();
+		HashMap<String, String> headers = new HashMap<>();
+		headers.put("User-Token","16fa3b5d0cf1422589909b282328ea0a");
+		headers.put("Content-Type", "application/json");
+		opts.headers(headers);
+		
+		NativeResponse res = NativeRequest.post("http://10.32.122.172:32614/api/v1alpha1/inst/node/list", new byte[0], opts);
 		System.out.println(new String(res.getBody(), StandardCharsets.UTF_8));
 	}
 	
@@ -103,6 +123,7 @@ public class HttpTest {
 //		sslTest();
 		
 //		httpServer();
-		uploadFile();
+//		uploadFile();
+		listTest();
 	}
 }

@@ -34,10 +34,15 @@ public class MultipartParser {
     	}
         String sep = "--"+req.getContentType().substring(MULTIPART_HEADER.length()).trim();
         String bodyStr = new String(req.getContent(), req.getContentEncoding());
-        String start = sep + "\r\n", end = sep + "--\r\n";
+        String start = sep + "\r\n", end = sep + "--";
         if(!bodyStr.startsWith(start) || !bodyStr.endsWith(end)) {
-    		throw new HttpException(HttpStatus.BAD_REQUEST.getCode(), 
-    				"invalid mulipart formdata content");
+        	if(!bodyStr.endsWith(end)) {
+        		end += "\r\n";
+            	if(!bodyStr.endsWith(end)) {
+            		throw new HttpException(HttpStatus.BAD_REQUEST.getCode(), 
+            				"invalid mulipart formdata content");
+            	}
+        	}
         }
         bodyStr = bodyStr.substring(start.length(), bodyStr.length() - end.length());
         return parse(bodyStr, sep + "\r\n", req.getContentEncoding());
