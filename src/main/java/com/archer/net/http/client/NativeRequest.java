@@ -266,7 +266,6 @@ public class NativeRequest {
 	
 	public static void streamRequest(String method, String httpUrl, FormData body, Options opt, 
 			Consumer<NativeResponse> onresponse, Consumer<Bytes> onchunk) {
-
 		if(opt == null) {
 			opt = new Options();
 		}
