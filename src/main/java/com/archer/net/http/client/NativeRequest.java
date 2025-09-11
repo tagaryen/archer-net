@@ -177,16 +177,13 @@ public class NativeRequest {
 		if(body == null) {
 			throw new NullPointerException("body can not be null");
 		}
-		if(opt.headers == null) {
-			opt.headers = new HashMap<>();
+		Map<String, String> oldHeaders = opt.getHeaders();
+		opt.headers = new HashMap<>();
+		if(oldHeaders != null) {
+			opt.headers.putAll(oldHeaders);
 		}
 		opt.headers.put("content-type", MultipartParser.MULTIPART_HEADER + body.getBoundary());
 		opt.headers.put("transfer-encoding", "chunked");
-//		try {
-//			opt.headers.put("content-length", String.valueOf(body.calculateFormDataLength()));
-//		} catch (IOException e) {
-//			throw new HttpException(HttpStatus.BAD_REQUEST, e);
-//		}
 		HttpUrl url = HttpUrl.parse(httpUrl);
 		Channel ch = prepareChannel(method, httpUrl, opt, url);
 		HttpRequestHandler handler = null;
@@ -228,8 +225,10 @@ public class NativeRequest {
 		if(body == null) {
 			throw new NullPointerException("body can not be null");
 		}
-		if(opt.headers == null) {
-			opt.headers = new HashMap<>();
+		Map<String, String> oldHeaders = opt.getHeaders();
+		opt.headers = new HashMap<>();
+		if(oldHeaders != null) {
+			opt.headers.putAll(oldHeaders);
 		}
 		opt.headers.put("content-type", MultipartParser.MULTIPART_HEADER + body.getBoundary());
 		opt.headers.put("transfer-encoding", "chunked");
@@ -274,8 +273,10 @@ public class NativeRequest {
 		if(body == null) {
 			throw new NullPointerException("body can not be null");
 		}
-		if(opt.headers == null) {
-			opt.headers = new HashMap<>();
+		Map<String, String> oldHeaders = opt.getHeaders();
+		opt.headers = new HashMap<>();
+		if(oldHeaders != null) {
+			opt.headers.putAll(oldHeaders);
 		}
 		opt.headers.put("content-type", MultipartParser.MULTIPART_HEADER + body.getBoundary());
 		opt.headers.put("transfer-encoding", "chunked");
