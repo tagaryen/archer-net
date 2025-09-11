@@ -16,16 +16,16 @@ public class MultipartParser {
 	
 	private static final Random r = new Random();
 	
-	private static final String PART_BODY = "\r\n\r\n";
-	private static final String LINE_LR = "\r\n";
-	private static final String HEADER_SEP = "; ";
-	private static final String CONTENT_DISPOS = "Content-Disposition: form-data; ";
-	private static final String CONTENT_TYPE = "Content-Type: ";
-	private static final String EQ = "=\"";
-	private static final String EQ_SEP = "\"; ";
-	private static final String EQ_END = "\"";
-	private static final String NAME = "name";
-	private static final String FILENAME = "filename";
+	public static final String PART_BODY = "\r\n\r\n";
+	public static final String LINE_LR = "\r\n";
+	public static final String HEADER_SEP = "; ";
+	public static final String CONTENT_DISPOS = "Content-Disposition: form-data; ";
+	public static final String CONTENT_TYPE = "Content-Type: ";
+	public static final String EQ = "=\"";
+	public static final String EQ_SEP = "\"; ";
+	public static final String EQ_END = "\"";
+	public static final String NAME = "name";
+	public static final String FILENAME = "filename";
 	
     public static List<Multipart> parse(HttpRequest req) throws UnsupportedEncodingException {
     	if(!req.getContentType().startsWith(MULTIPART_HEADER)) {
@@ -54,6 +54,10 @@ public class MultipartParser {
     		s += r.nextInt(10);
     	}
     	return "--------------------------" + s;
+    }
+    
+    public static String generateMultipartBody(FormData form) {
+    	return generateMultipartBody(form.getMultiparts(), form.getBoundary());
     }
     
     public static String generateMultipartBody(List<Multipart> parts, String boundary) {

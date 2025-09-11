@@ -3,7 +3,6 @@ package com.archer.net.http.client;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.locks.ReentrantLock;
 
 import com.archer.net.Bytes;
 import com.archer.net.http.HttpException;
@@ -39,8 +38,6 @@ public class NativeResponse {
     
     private static final String ERR_MSG = "parse http response failed. ";
 	
-
-    private ReentrantLock contentLock = new ReentrantLock(true);
     
     private Bytes chunkedBody = new Bytes();
     private Bytes remainBody = new Bytes();
@@ -78,6 +75,10 @@ public class NativeResponse {
 		return body;
 	}
 	
+	protected void clearBody() {
+		this.body = new byte[0];
+	}
+	
 	public String getContentType() {
 		return contentType;
 	}
@@ -107,7 +108,6 @@ public class NativeResponse {
 	}
 	
 	protected void parseHead(byte[] res) {
-		contentLock.lock();
 		if(headerParsed) {
 			parseContent(res);
 		}
@@ -242,72 +242,66 @@ public class NativeResponse {
 				body = chunkedBody.readAll();
 			}
 			headerParsed = true;
-			contentLock.unlock();
 		}
 	}
 	
 	protected void parseContent(byte[] content) {
-		contentLock.lock();
-		try {
-			if(isChunked) {
-				int s = 0, len = 0;
-				if(remainBody.available() > 0) {
-					remainBody.write(content);
-					content = remainBody.readAll();
-				}
-				for(int i = 0; i < content.length; i++) {
-		    		if(content[i] == LF) {
-		    			len = HexUtil.bytesToInt(content, s, (content[i-1] == LR)?(i-1):i);
-	    				if(len == 0) {
-		    				finished = true;
-		    				break;
-		    			} else {
-		    				i++;
-		    				if(i >= content.length) {
+		if(isChunked) {
+			int s = 0, len = 0;
+			if(remainBody.available() > 0) {
+				remainBody.write(content);
+				content = remainBody.readAll();
+			}
+			for(int i = 0; i < content.length; i++) {
+	    		if(content[i] == LF) {
+	    			len = HexUtil.bytesToInt(content, s, (content[i-1] == LR)?(i-1):i);
+    				if(len == 0) {
+	    				finished = true;
+	    				break;
+	    			} else {
+	    				i++;
+	    				if(i >= content.length) {
+	    					remainBody.write(content, s, content.length - s);
+	    					break;
+	    				} else if(content[i + 1] == LR) {
+	    					i++;
+	    					if(i >= content.length) {
 		    					remainBody.write(content, s, content.length - s);
 		    					break;
-		    				} else if(content[i + 1] == LR) {
-		    					i++;
-		    					if(i >= content.length) {
-			    					remainBody.write(content, s, content.length - s);
-			    					break;
-		    					}
-		    				}
-		    				
-		    				if(len + i >= content.length) {
-		    					remainBody.write(content, s, content.length - s);
-		    					break;
-		    				} else {
-		    					chunkedBody.write(content, i, len);
-		    				}
-		    				i += len;
-		    				while(content[i] == LR || content[i] == LF) {
-		    					i++;
-		    					if(i >= content.length) {
-		    						break;
-		    					}
-		    				}
-		    				s = i;
-		    			}
-		    		}
-				}
-			} else {
-				if(content.length + chunkedBody.available() > this.contentLength) {
-					throw new HttpException(HttpStatus.BAD_REQUEST.getCode(),
-							"content bytes over flow.");
-				}
-				chunkedBody.write(content);
-				if(chunkedBody.available() >= this.contentLength) {
-					finished = true;
-				}
+	    					}
+	    				}
+	    				
+	    				if(len + i >= content.length) {
+	    					remainBody.write(content, s, content.length - s);
+	    					break;
+	    				} else {
+	    					chunkedBody.write(content, i, len);
+	    				}
+	    				i += len;
+	    				while(content[i] == LR || content[i] == LF) {
+	    					i++;
+	    					if(i >= content.length) {
+	    						break;
+	    					}
+	    				}
+	    				s = i;
+	    			}
+	    		}
 			}
-			if(finished) {
-				body = chunkedBody.readAll();
-				chunkedBody.clear();
-				remainBody.clear();
+		} else {
+			if(content.length + chunkedBody.available() > this.contentLength) {
+				throw new HttpException(HttpStatus.BAD_REQUEST.getCode(),
+						"content bytes over flow.");
 			}
-		} finally {
-			contentLock.unlock();
+			chunkedBody.write(content);
+			if(chunkedBody.available() >= this.contentLength) {
+				finished = true;
+			}
+		}
+		if(finished) {
+			body = chunkedBody.readAll();
+			chunkedBody.clear();
+			remainBody.clear();
 		}
 	}
 	

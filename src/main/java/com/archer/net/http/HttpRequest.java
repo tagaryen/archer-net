@@ -7,8 +7,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.locks.ReentrantLock;
-
 import com.archer.net.Bytes;
 import com.archer.net.util.HexUtil;
 
@@ -47,8 +45,6 @@ public class HttpRequest {
 
     private static final String DEFAULT_ENCODING_VAL = "utf-8";
     private static final String DEFAULT_ENCODING_KEY = "charset";
-    
-    private ReentrantLock contentLock = new ReentrantLock(true);
 	
     private volatile boolean finished = false; 
     
@@ -108,6 +104,10 @@ public class HttpRequest {
 	
 	public Map<String, String> getQueryParams() {
 		return query;
+	}
+	
+	public Map<String, String> getHeaders() {
+		return headers;
 	}
 	
 	public String getContentType() {
@@ -397,68 +397,55 @@ public class HttpRequest {
 		}
 	}
 	
-	protected void lock() {
-		contentLock.lock();
-	}
-	
-	protected void unlock() {
-		contentLock.unlock();
-	}
-	
-	protected synchronized void putContent(byte[] content) {
-		if(this.content == null) {
-			throw new HttpException(HttpStatus.BAD_REQUEST.getCode(), 
-					"content is not expected here.");
+	protected void putContent(byte[] content) {
+//		if(this.content == null) {
+//			throw new HttpException(HttpStatus.BAD_REQUEST.getCode(), 
+//					"content is not expected here.");
+//		}
+		if(isChunked) {
+			int s = 0, len = 0, state = CHUNKED_LEN;
+			if(remainBody.available() > 0) {
+				remainBody.write(content);
+				content = remainBody.readAll();
+			}
+			for(int i = 0; i < content.length; i++) {
+	    		if(state == CHUNKED_LEN && content[i] == ENTER) {
+	    			len = HexUtil.bytesToInt(content, s, i - 1);
+	    			state = CHUNKED_VAL;
+	    			if(len == 0) {
+	    				finished = true;
+	    				this.content = chunkedBody.readAll();
+	    				break;
+	    			} else {
+	    				if(len + i + 1 > content.length) {
+	    					remainBody.write(content, s, content.length - s);
+	    					break;
+	    				} else {
+	    					chunkedBody.write(content, i + 1, len);
+	    				}
+	    				i += 1 + len;
+	    			}
+	    			continue;
+	    		}
+	    		if(state == CHUNKED_VAL && content[i] == ENTER) {
+	    			s = i + 1;
+	    			state = CHUNKED_LEN;
+	    		}
+			}
+		} else {
+			if(content.length + pos > this.content.length) {
+				throw new HttpException(HttpStatus.BAD_REQUEST.getCode(),
+						"content bytes over flow.");
+			}
+			System.arraycopy(content, 0, this.content, pos, content.length);
+			pos += content.length;
+			if(pos == this.contentLength) {
+				finished = true;
+			}
 		}
-		contentLock.lock();
-		try {
-			if(isChunked) {
-				int s = 0, len = 0, state = CHUNKED_LEN;
-				if(remainBody.available() > 0) {
-					remainBody.write(content);
-					content = remainBody.readAll();
-				}
-				for(int i = 0; i < content.length; i++) {
-		    		if(state == CHUNKED_LEN && content[i] == ENTER) {
-		    			len = HexUtil.bytesToInt(content, s, i - 1);
-		    			state = CHUNKED_VAL;
-		    			if(len == 0) {
-		    				finished = true;
-		    				this.content = chunkedBody.readAll();
-		    				break;
-		    			} else {
-		    				if(len + i + 1 > content.length) {
-		    					remainBody.write(content, s, content.length - s);
-		    					break;
-		    				} else {
-		    					chunkedBody.write(content, i + 1, len);
-		    				}
-		    				i += 1 + len;
-		    			}
-		    			continue;
-		    		}
-		    		if(state == CHUNKED_VAL && content[i] == ENTER) {
-		    			s = i + 1;
-		    			state = CHUNKED_LEN;
-		    		}
-				}
-			} else {
-				if(content.length + pos > this.content.length) {
-					throw new HttpException(HttpStatus.BAD_REQUEST.getCode(),
-							"content bytes over flow.");
-				}
-				System.arraycopy(content, 0, this.content, pos, content.length);
-				pos += content.length;
-				if(pos == this.contentLength) {
-					finished = true;
-				}
-			}
-			if(finished) {
-				chunkedBody.clear();
-				remainBody.clear();
-			}
-		} finally {
-			contentLock.unlock();
+		if(finished) {
+			chunkedBody.clear();
+			remainBody.clear();
 		}
 	}
 	

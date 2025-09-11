@@ -1,5 +1,6 @@
 package com.archer.net.http.client;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Locale;
@@ -13,7 +14,10 @@ import com.archer.net.HandlerList;
 import com.archer.net.handler.Handler;
 import com.archer.net.http.HttpException;
 import com.archer.net.http.HttpStatus;
+import com.archer.net.http.multipart.FormData;
+import com.archer.net.http.multipart.MultipartParser;
 import com.archer.net.ssl.SslContext;
+import com.archer.net.util.HexUtil;
 
 public class NativeRequest {
 
@@ -52,7 +56,7 @@ public class NativeRequest {
     }
 
     public static NativeResponse get(String httpUrl, Options opt) {
-        return request("GET", httpUrl, null, opt);
+        return request("GET", httpUrl, (byte[])null, opt);
     }
 
     public static NativeResponse post(String httpUrl, byte[] body, Options opt) {
@@ -90,7 +94,7 @@ public class NativeRequest {
 
     public static void getAsync(String httpUrl, Options opt, 
     		Consumer<NativeResponse> callback, Consumer<Throwable> exceptionCallback) {
-        requestAsync("GET", httpUrl, null, opt, callback, exceptionCallback);
+        requestAsync("GET", httpUrl, (byte[])null, opt, callback, exceptionCallback);
     }
 
     public static void postAsync(String httpUrl, byte[] body, Options opt, 
@@ -116,7 +120,7 @@ public class NativeRequest {
 			body = new byte[0];
 		}
 		HttpUrl url = HttpUrl.parse(httpUrl);
-		Channel ch = prepareChannel(method, httpUrl, body, opt, url);
+		Channel ch = prepareChannel(method, httpUrl, opt, url);
 		HttpRequestHandler handler = null;
 		HttpException t = null;
 		try {
@@ -156,7 +160,7 @@ public class NativeRequest {
 			body = new byte[0];
 		}
 		HttpUrl url = HttpUrl.parse(httpUrl);
-		Channel ch = prepareChannel(method, httpUrl, body, opt, url);
+		Channel ch = prepareChannel(method, httpUrl, opt, url);
 
 		HandlerList handlers = new HandlerList();
 		HttpAsyncRequestHandler handler = 
@@ -166,7 +170,129 @@ public class NativeRequest {
 		ch.connect(url.getHost(), url.getPort());
 	}
 	
-	private static Channel prepareChannel(String method, String httpUrl, byte[] body, Options opt, HttpUrl url) {
+	public static NativeResponse request(String method, String httpUrl, FormData body, Options opt) {
+		if(opt == null) {
+			opt = new Options();
+		}
+		if(body == null) {
+			throw new NullPointerException("body can not be null");
+		}
+		if(opt.headers == null) {
+			opt.headers = new HashMap<>();
+		}
+		opt.headers.put("content-type", MultipartParser.MULTIPART_HEADER + body.getBoundary());
+		opt.headers.put("transfer-encoding", "chunked");
+//		try {
+//			opt.headers.put("content-length", String.valueOf(body.calculateFormDataLength()));
+//		} catch (IOException e) {
+//			throw new HttpException(HttpStatus.BAD_REQUEST, e);
+//		}
+		HttpUrl url = HttpUrl.parse(httpUrl);
+		Channel ch = prepareChannel(method, httpUrl, opt, url);
+		HttpRequestHandler handler = null;
+		HttpException t = null;
+		try {
+			HandlerList handlers = new HandlerList();
+			handler = 
+					new HttpRequestHandler(opt.getTimeout(), new Bytes(getRequestAsBytes(method, url, opt, null))); 
+			handler.form = body;
+			handlers.add(handler);
+			ch.handlerList(handlers);
+			ch.connect(url.getHost(), url.getPort());
+			handler.await();
+			if(!handler.res.finished() && handler.err != null) {
+				t = handler.err;
+			}
+		} catch(RuntimeException e) {
+			if(e instanceof HttpException) {
+				t = (HttpException) e;
+			} else {
+				t = new HttpException(HttpStatus.BAD_REQUEST, e);
+			}
+		}
+		ch.close();
+		if(t != null) {
+			throw t;
+		}
+		if(handler == null) {
+			throw new HttpException(HttpStatus.REQUEST_TIMEOUT); 
+		}
+		return handler.res;
+	}
+	
+	public static void requestAsync(String method, String httpUrl, FormData body, Options opt, 
+			Consumer<NativeResponse> callback, Consumer<Throwable> exceptionCallback) {
+		if(opt == null) {
+			opt = new Options();
+		}
+		if(body == null) {
+			throw new NullPointerException("body can not be null");
+		}
+		if(opt.headers == null) {
+			opt.headers = new HashMap<>();
+		}
+		opt.headers.put("content-type", MultipartParser.MULTIPART_HEADER + body.getBoundary());
+		opt.headers.put("transfer-encoding", "chunked");
+		HttpUrl url = HttpUrl.parse(httpUrl);
+		Channel ch = prepareChannel(method, httpUrl, opt, url);
+
+		HandlerList handlers = new HandlerList();
+		HttpAsyncRequestHandler handler = 
+				new HttpAsyncRequestHandler(new Bytes(getRequestAsBytes(method, url, opt, null)), callback, exceptionCallback); 
+		handler.form = body;
+		handlers.add(handler);
+		ch.handlerList(handlers);
+		ch.connect(url.getHost(), url.getPort());
+	}
+
+	public static void streamRequest(String method, String httpUrl, byte[] body, Options opt, 
+			Consumer<NativeResponse> onresponse, Consumer<Bytes> onchunk) {
+		if(opt == null) {
+			opt = new Options();
+		}
+		if(body == null) {
+			body = new byte[0];
+		}
+		HttpUrl url = HttpUrl.parse(httpUrl);
+		Channel ch = prepareChannel(method, httpUrl, opt, url);
+
+		HandlerList handlers = new HandlerList();
+		HttpAsyncRequestHandler handler = 
+				new HttpAsyncRequestHandler(new Bytes(getRequestAsBytes(method, url, opt, body)), onresponse, null);
+		handler.onchunk = onchunk;
+		handlers.add(handler);
+		ch.handlerList(handlers);
+		ch.connect(url.getHost(), url.getPort());
+	}
+	
+	public static void streamRequest(String method, String httpUrl, FormData body, Options opt, 
+			Consumer<NativeResponse> onresponse, Consumer<Bytes> onchunk) {
+
+		if(opt == null) {
+			opt = new Options();
+		}
+		if(body == null) {
+			throw new NullPointerException("body can not be null");
+		}
+		if(opt.headers == null) {
+			opt.headers = new HashMap<>();
+		}
+		opt.headers.put("content-type", MultipartParser.MULTIPART_HEADER + body.getBoundary());
+		opt.headers.put("transfer-encoding", "chunked");
+		HttpUrl url = HttpUrl.parse(httpUrl);
+		Channel ch = prepareChannel(method, httpUrl, opt, url);
+
+		HandlerList handlers = new HandlerList();
+		HttpAsyncRequestHandler handler = 
+				new HttpAsyncRequestHandler(new Bytes(getRequestAsBytes(method, url, opt, null)), onresponse, null); 
+		handler.form = body;
+		handler.onchunk = onchunk;
+		handlers.add(handler);
+		ch.handlerList(handlers);
+		ch.connect(url.getHost(), url.getPort());
+	}
+	
+	private static Channel prepareChannel(String method, String httpUrl, Options opt, HttpUrl url) {
 		if(method == null || httpUrl == null) {
 			throw new NullPointerException();
 		}
@@ -414,8 +540,11 @@ public class NativeRequest {
 
 		NativeResponse res = new NativeResponse();
 		Bytes requestData;
+		FormData form;
 		Consumer<NativeResponse> callback;
 		Consumer<Throwable> exceptionCallback;
+		Consumer<Bytes> onchunk = null;
+		
 		
 		HttpAsyncRequestHandler(Bytes requestData, Consumer<NativeResponse> callback, Consumer<Throwable> exceptionCallback) {
 			this.requestData = requestData;
@@ -429,8 +558,17 @@ public class NativeRequest {
 				res.parseContent(input.readAll());
 			} else {
 				res.parseHead(input.readAll());
+				if(this.onchunk != null && this.callback != null) {
+					this.callback.accept(res);
+				}
 			}
-			if(res.finished()) {
+			if(this.onchunk != null && res.getBody() != null && res.getBody().length > 0) {
+				this.onchunk.accept(new Bytes(res.getBody()));
+				res.clearBody();
+				if(res.finished()) {
+					ctx.close();
+				}
+			} else if(res.finished()) {
 				ctx.close();
 				
 				if(this.callback != null) {
@@ -459,6 +597,24 @@ public class NativeRequest {
 		@Override
 		public void onConnect(ChannelContext ctx) {
 			ctx.toLastOnWrite(requestData);
+			if(this.form != null) {
+				Bytes out = null;
+				try {
+					Bytes chunk = new Bytes(FormData.CACHE_SIZE + 16);
+					while((out = this.form.read()) != null) {
+						chunk.clear();
+						chunk.write((HexUtil.intToHex(out.available()) + "\r\n").getBytes());
+						chunk.readFromBytes(out);
+						chunk.write("\r\n".getBytes());
+						ctx.toLastOnWrite(chunk);
+					}
+					ctx.toLastOnWrite(new Bytes("0\r\n\r\n".getBytes()));
+				} catch (IOException e) {
+					onError(ctx, e);
+					ctx.close();
+					return ;
+				}
+			}
 		}
 		@Override
 		public void onAccept(ChannelContext ctx) {}
@@ -477,6 +633,7 @@ public class NativeRequest {
 		Bytes requestData;
 		HttpException err;
 		long timeout;
+		FormData form = null;
 		
 		HttpRequestHandler(long timeout, Bytes requestData) {
 			this.timeout = timeout;
@@ -528,6 +685,24 @@ public class NativeRequest {
 		@Override
 		public void onConnect(ChannelContext ctx) {
 			ctx.write(requestData);
+			if(this.form != null) {
+				Bytes out = null;
+				try {
+					Bytes chunk = new Bytes(FormData.CACHE_SIZE + 16);
+					while((out = this.form.read()) != null) {
+						chunk.clear();
+						chunk.write((HexUtil.intToHex(out.available()) + "\r\n").getBytes());
+						chunk.readFromBytes(out);
+						chunk.write("\r\n".getBytes());
+						ctx.toLastOnWrite(chunk);
+					}
+					ctx.toLastOnWrite(new Bytes("0\r\n\r\n".getBytes()));
+				} catch (IOException e) {
+					onError(ctx, e);
+					ctx.close();
+					return ;
+				}
+			}
 		}
 		@Override
 		public void onAccept(ChannelContext ctx) {}

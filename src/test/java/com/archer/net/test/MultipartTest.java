@@ -1,7 +1,6 @@
 package com.archer.net.test;
 
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -137,14 +136,14 @@ public class MultipartTest {
     	}
     }
     
-    public static void main(String args[]) {
+    public static void test0() {
     	try {
     		
 
     		List<Multipart> parts = new ArrayList<>();
     		parts.add(new Multipart("Node-Id", "alice"));
     		try {
-    			parts.add(new Multipart("file", "data1029.csv", Files.readAllBytes(Paths.get("D:/da.csv")), "application/csv"));
+    			parts.add(new Multipart("file", "data1029.csv", Files.readAllBytes(Paths.get("D:/da.csv"))));
     		} catch (IOException e) {
     			e.printStackTrace();
     		}
@@ -156,5 +155,10 @@ public class MultipartTest {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+    }
+    
+
+    
+    public static void main(String args[]) {
     }
 }

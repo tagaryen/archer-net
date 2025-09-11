@@ -37,6 +37,7 @@ public class Channel {
 		}
 	}
 	protected void onDisconnect() {
+		errBeforeLoop = true;
 		if(active.compareAndSet(true, false) && clientSide) {
 			if(ifEnd()) {
 				stopEventloop();
@@ -47,6 +48,7 @@ public class Channel {
 		}
 	}
 	protected void onError(byte[] msg) {
+		errBeforeLoop = true;
 		if(active.compareAndSet(true, false) && clientSide) {
 			if(ifEnd()) {
 				stopEventloop();
@@ -78,7 +80,7 @@ public class Channel {
 		while(true) {
 			old = channelCount.get();
 			if(channelCount.compareAndSet(old, old+1)) {
-				if(old == 0) {
+				if(old <= 0) {
 					ok = true;
 				}
 				break;
@@ -104,6 +106,7 @@ public class Channel {
 	
 	private long channelfd;
 	private AtomicBoolean active = new AtomicBoolean(false);
+	private volatile boolean errBeforeLoop = false;
 	
 	private boolean clientSide;
 	
@@ -169,7 +172,9 @@ public class Channel {
 		if(ifStart()) {
 			this.future = new ChannelFuture(host+port) {
 				public void apply() {
-					startEventloop();
+					if(!errBeforeLoop) {
+						startEventloop();
+					}
 				}
 			};
 			this.future.start();

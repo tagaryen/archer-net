@@ -2,6 +2,7 @@ package com.archer.net.util;
 
 public class HexUtil {
 	private static int[] radix16 = new int['z' + 1];
+	private static char[] hex = new char[] {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
 	
 	static {
 		for(int i = '0'; i <= '9'; i++) {
@@ -15,6 +16,26 @@ public class HexUtil {
 		}
 	}
 	
+	public static String intToHex(long n) {
+		String s = "";
+		while(n > 0) {
+			s = hex[(int)(n % 16)] + s;
+			n /= 16;
+		}
+		return s;
+	}
+	
+	public static int hexToInt(String h) {
+		char[] hc = h.toCharArray();
+		int n = 0;
+		for(int i = hc.length - 1; i > -1; i--) {
+			if(hc[i] >= radix16.length || radix16[hc[i]] == 0) {
+				throw new IllegalArgumentException("invalid hex " + h);
+			}
+			n = n * 16 + radix16[hc[i]];
+		}
+		return n;
+	}
 	
 	public static int bytesToInt(byte[] data, int from, int to) {
 		int ret = 0;

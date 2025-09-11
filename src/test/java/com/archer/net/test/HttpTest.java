@@ -1,12 +1,15 @@
 package com.archer.net.test;
 
 import java.io.IOException;
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.archer.net.http.HttpRequest;
 import com.archer.net.http.HttpResponse;
@@ -15,6 +18,7 @@ import com.archer.net.http.HttpServerException;
 import com.archer.net.http.HttpWrappedHandler;
 import com.archer.net.http.client.NativeRequest;
 import com.archer.net.http.client.NativeResponse;
+import com.archer.net.http.multipart.FormData;
 import com.archer.net.http.multipart.Multipart;
 import com.archer.net.http.multipart.MultipartParser;
 import com.archer.net.ssl.SslContext;
@@ -60,14 +64,13 @@ public class HttpTest {
 
 				@Override
 				public void handle(HttpRequest req, HttpResponse res) throws Exception {
-//					System.out.println(req.getContentType());
-//					String bd = new String(req.getContent(), StandardCharsets.UTF_8);
-//					System.out.println(bd);
-//					for(Multipart p:  MultipartParser.parse(req)) {
-//						System.out.println("name: "+p.getName());
-//						System.out.println("filename: "+p.getFileName());
-//						System.out.println("content: "+new String(p.getContent()));
-//					}
+
+					System.out.println("\n\n");
+					for(Map.Entry<String, String> en : req.getHeaders().entrySet()) {
+						System.out.println(en.getKey() + ":" + en.getValue());
+					}
+					res.setContent("你好".getBytes());
+					
 				}
 
 				@Override
@@ -83,7 +86,7 @@ public class HttpTest {
 		List<Multipart> parts = new ArrayList<>();
 		parts.add(new Multipart("Node-Id", "alice"));
 		try {
-			parts.add(new Multipart("file", "data1029.csv", Files.readAllBytes(Paths.get("D:/da.csv")), "application/csv"));
+			parts.add(new Multipart("file", "data1029.csv", Files.readAllBytes(Paths.get("D:/da.csv"))));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -113,6 +116,26 @@ public class HttpTest {
 		System.out.println(new String(res.getBody(), StandardCharsets.UTF_8));
 	}
 	
+	public static void streamUploadFile() {
+		FormData form = new FormData();
+		form.put("你", "好");
+		try {
+			form.put("file", new File("D:/install.sh"));
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+			return;
+		}
+		NativeRequest.streamRequest("POST", "http://127.0.0.1:8080/asdasd", form, null, 
+			res -> {
+				System.out.println(res.getContentType());
+			}, 
+			data -> {
+				System.out.println("*******");
+				System.out.println(new String(data.readAll()));
+			}
+		);
+	}
+	
 	public static void main(String args[]) {
 //		NativeRequest.getAsync("http://10.32.122.172:9610/nihao/hhh", (res) -> {
 //			System.out.println("9610 *****");
@@ -124,6 +147,7 @@ public class HttpTest {
 		
 //		httpServer();
 //		uploadFile();
-		listTest();
+//		listTest();
+		streamUploadFile();
 	}
 }
