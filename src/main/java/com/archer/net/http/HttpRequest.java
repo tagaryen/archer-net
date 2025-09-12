@@ -11,6 +11,8 @@ import com.archer.net.Bytes;
 import com.archer.net.util.HexUtil;
 
 public class HttpRequest {
+	
+	public static final String HTTP_10 = "HTTP/1.0";
 
     private static final int DEFAULT_HEADER_SIZE = 32;
     private static final char SEM = ';';

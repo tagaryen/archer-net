@@ -66,6 +66,9 @@ public abstract class HttpWrappedHandler implements Handler {
 					System.out.println("http response, content-length is" + res.getContentLength());
 				}
 				onWrite(ctx, new Bytes(res.toBytes()));
+				if(HttpRequest.HTTP_10.equals(req.getHttpVersion())) {
+					ctx.close();
+				}
 			}
 		} catch(Exception e) {
 			onError(ctx, e);

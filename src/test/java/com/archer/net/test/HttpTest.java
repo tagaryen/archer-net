@@ -64,13 +64,7 @@ public class HttpTest {
 
 				@Override
 				public void handle(HttpRequest req, HttpResponse res) throws Exception {
-
-					System.out.println("\n\n");
-					for(Map.Entry<String, String> en : req.getHeaders().entrySet()) {
-						System.out.println(en.getKey() + ":" + en.getValue());
-					}
 					res.setContent("你好".getBytes());
-					
 				}
 
 				@Override
@@ -145,9 +139,9 @@ public class HttpTest {
 //		}, null);
 //		sslTest();
 		
-//		httpServer();
+		httpServer();
 //		uploadFile();
 //		listTest();
-		streamUploadFile();
+//		streamUploadFile();
 	}
 }
