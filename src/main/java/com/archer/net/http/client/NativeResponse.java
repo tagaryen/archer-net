@@ -289,13 +289,16 @@ public class NativeResponse {
 	    		}
 			}
 		} else {
-			if(content.length + chunkedBody.available() > this.contentLength) {
+			if(this.contentLength == 0) {
+				finished = true;
+			} else if(content.length + chunkedBody.available() > this.contentLength) {
 				throw new HttpException(HttpStatus.BAD_REQUEST.getCode(),
 						"content bytes over flow.");
-			}
-			chunkedBody.write(content);
-			if(chunkedBody.available() >= this.contentLength) {
-				finished = true;
+			} else {
+				chunkedBody.write(content);
+				if(chunkedBody.available() >= this.contentLength) {
+					finished = true;
+				}
 			}
 		}
 		if(finished) {

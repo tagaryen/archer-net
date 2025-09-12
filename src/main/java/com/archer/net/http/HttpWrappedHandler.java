@@ -40,7 +40,13 @@ public abstract class HttpWrappedHandler implements Handler {
 			if(req.isEmpty()) {
 				try {
 					req.parse(msg);
+					res.setVersion(req.getHttpVersion());
+					String connection = req.getHeader("connection");
+					if(null != connection) {
+						res.setHeader("connection", connection);
+					}
 				} catch(HttpException e) {
+					res.setVersion(req.getHttpVersion());
 					res.setStatus(HttpStatus.valueOf(e.getCode()));
 					onWrite(ctx, new Bytes(res.toBytes()));
 				}
