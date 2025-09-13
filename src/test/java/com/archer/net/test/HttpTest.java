@@ -11,11 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.archer.net.http.HttpRequest;
-import com.archer.net.http.HttpResponse;
-import com.archer.net.http.HttpServer;
-import com.archer.net.http.HttpServerException;
-import com.archer.net.http.HttpWrappedHandler;
+import com.archer.net.http.*;
 import com.archer.net.http.client.NativeRequest;
 import com.archer.net.http.client.NativeResponse;
 import com.archer.net.http.multipart.FormData;
@@ -64,7 +60,11 @@ public class HttpTest {
 
 				@Override
 				public void handle(HttpRequest req, HttpResponse res) throws Exception {
-					res.setContent("你好".getBytes());
+					System.out.println(new String(req.getContent()));
+//					res.sendContent("你好按实际库存能尽快四川南充开设店铺数据的【vOK我从靠谱参考参考视频课程破碎锤".getBytes());
+					HttpStreamWriter writer = res.streamWriter();
+					writer.write("你好按实际库存能尽快四川南充开设店铺数据的【vOK我从靠谱参考参考视频课程破碎锤".getBytes(StandardCharsets.UTF_8));
+					writer.end();
 				}
 
 				@Override

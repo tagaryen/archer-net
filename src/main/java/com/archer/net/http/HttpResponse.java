@@ -1,5 +1,8 @@
 package com.archer.net.http;
 
+import com.archer.net.Bytes;
+import com.archer.net.ChannelContext;
+
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.time.LocalDateTime;
@@ -23,15 +26,17 @@ public class HttpResponse {
 	private static final String HEADER_CONTENT_TYPE = "Content-type";
     private static final String HEADER_CONTENT_LENGTH = "Content-length";
 
+	private static final String HEADER_TRANSFER_ENCODING = "transfer-encoding";
+	private static final String CHUNKED = "chunked";
+
     private static final String DEFAULT_ENCODING_VAL = "utf-8";
     private static final String DEFAULT_ENCODING_KEY = "charset";
     
     private static final int DEFAULT_HEADER_SIZE = 32;
     private static final int BASE_HEADER_LEN = 48;
-	
-    private String remoteHost;
-    private int remotePort;
-    
+
+    private ChannelContext ctx;
+
 	private String version;
 	private String status;
 
@@ -45,23 +50,14 @@ public class HttpResponse {
 	
 	private byte[] content;
 	
-	protected HttpResponse(String host, int port) {
+	protected HttpResponse(ChannelContext ctx) {
 		clear();
-		remoteHost = host;
-		remotePort = port; 
+		this.ctx = ctx;
 		headers = new HashMap<>(DEFAULT_HEADER_SIZE);
 		for(int i = 0; i < HEADER_KEY.length; i++) {
 			String key = HEADER_KEY[i], val = HEADER_VAL[i];
 			headers.put(key.toLowerCase(), val);
 		}
-	}
-	
-	public String remoteHost() {
-		return remoteHost;
-	}
-
-	public int remotePort() {
-		return remotePort;
 	}
 
 	public int getStatusCode() {
@@ -128,17 +124,28 @@ public class HttpResponse {
 		return null;
 	}
 
-	public byte[] getContent() {
-		return content;
-	}
-
-	public void setContent(byte[] content) {
+	private void setContent(byte[] content) {
 		if(content != null) {
 			this.contentLength = content.length;
 		} else {
 			this.contentLength = 0;
 		}
 		this.content = content;
+	}
+
+	public void sendContent(byte[] content) {
+		setContent(content);
+		ctx.toLastOnWrite(toBytes());
+	}
+
+	public HttpStreamWriter streamWriter() {
+		headers.remove(HEADER_CONTENT_LENGTH.toLowerCase());
+		headers.put(HEADER_TRANSFER_ENCODING.toLowerCase(), CHUNKED);
+		this.contentLength = -1;
+		Bytes t = toBytes();
+		ctx.toLastOnWrite(toBytes());
+
+		return new HttpStreamWriter(ctx);
 	}
 
 	protected void setVersion(String version) {
@@ -161,7 +168,7 @@ public class HttpResponse {
 		content = null;
 	}
 	
-	public byte[] toBytes() throws IOException {
+	public Bytes toBytes() {
 		StringBuilder sb = new StringBuilder(DEFAULT_HEADER_SIZE * BASE_HEADER_LEN);
 		String localVersion = version;
 		if(localVersion == null) {
@@ -201,29 +208,24 @@ public class HttpResponse {
 		}
 		if(!keySet.contains(HEADER_CONTENT_TYPE.toLowerCase())) {
 			sb.append(HEADER_CONTENT_TYPE).append(COLON).append(SPACE)
-			.append(ContentType.TEXT_HTML.getName()).append(SEM).append(SPACE)
-			.append(DEFAULT_ENCODING_VAL).append(EQL)
-			.append(encode).append(ENTER);
+			.append(ContentType.TEXT_HTML.getName()).append(ENTER);
 		}
-		int contentLength = content != null ? content.length : 0;
-		sb.append(HEADER_CONTENT_LENGTH).append(COLON).append(SPACE)
-		.append(contentLength).append(ENTER);
-		
-		sb.append(ENTER);
-		
-		byte[] headerBytes;
+		if(contentLength >= 0) {
+			sb.append(HEADER_CONTENT_LENGTH).append(COLON).append(SPACE)
+					.append(contentLength).append(ENTER);
+		}
+
+		Bytes resBytes = new Bytes();
 		try {
-			headerBytes = sb.toString().getBytes(encode);
+			resBytes.write(sb.toString().getBytes(encode));
 		} catch (UnsupportedEncodingException e) {
-			throw new IOException("undefined encoding " + encode);
+			throw new HttpException(HttpStatus.INTERNAL_SERVER_ERROR, e);
 		}
-		byte[] resBytes;
-		if(content != null && content.length > 0) {
-			resBytes = new byte[headerBytes.length + content.length];
-			System.arraycopy(headerBytes, 0, resBytes, 0, headerBytes.length);
-			System.arraycopy(content, 0, resBytes, headerBytes.length, content.length);
-		} else {
-			resBytes = headerBytes;
+		if(contentLength >= 0) {
+			resBytes.write(ENTER.getBytes());
+			if(content != null) {
+				resBytes.write(content);
+			}
 		}
 		return resBytes;
 	}

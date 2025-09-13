@@ -62,23 +62,39 @@ public abstract class WebSocketHandler implements Handler {
 				}
 			} else {
 				byte[] msg = in.readAll();
-				if(req.isEmpty()) {
-					try {
+
+				try {
+					if(req.isEmpty()) {
 						req.parse(msg);
-					} catch(HttpException e) {
-						res.setStatus(HttpStatus.valueOf(e.getCode()));
-						onWrite(ctx, new Bytes(res.toBytes()));
+						res.setVersion(req.getHttpVersion());
+						String connection = req.getHeader("connection");
+						if(null != connection) {
+							res.setHeader("connection", connection);
+						}
+					} else {
+						req.putContent(msg);
 					}
-				} else {
-					req.putContent(msg);
+				} catch(Exception e) {
+					HttpStatus status;
+					if(e instanceof HttpException) {
+						status = HttpStatus.valueOf(((HttpException)e).getCode());
+					} else {
+						status = HttpStatus.BAD_REQUEST;
+					}
+					res.setVersion(req.getHttpVersion());
+					res.setStatus(status);
+					res.sendContent(status.getMsg().getBytes());
+					return ;
 				}
+
 				if(req.isFinished()) {
 					boolean ok = setWsResponse(req, res);
-					ctx.toLastOnWrite(new Bytes(res.toBytes()));
+					res.sendContent(null);
 					if(!ok) {
 						ctx.channel().close();
 						return ;
 					}
+					onConnected(wsChannel);
 					wsChannel.handshakeDone = true;
 				}
 			}
@@ -233,7 +249,7 @@ public abstract class WebSocketHandler implements Handler {
 		
 		public WebSocketChannel(ChannelContext ctx) {
 			this.request = new HttpRequest(ctx.channel().remoteHost(), ctx.channel().remotePort());
-			this.response = new HttpResponse(ctx.channel().remoteHost(), ctx.channel().remotePort());
+			this.response = new HttpResponse(ctx);
 			this.ctx = ctx;
 			this.handshakeDone = false;
 			this.input = new Bytes();

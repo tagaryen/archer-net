@@ -6,7 +6,7 @@ maven:
     <dependency>
 	  <groupId>io.github.tagaryen</groupId>  
 	  <artifactId>archer-net</artifactId>  
-	  <version>1.3.24</version>  
+	  <version>1.3.25</version>  
 	</dependency>  
 ``` maven
 
@@ -133,10 +133,10 @@ maven:
             res.setContentType(ContentType.APPLICATION_JSON);
             if(uri.equals("/nihao")) {
             res.setStatus(HttpStatus.OK);
-            res.setContent("{\"nihao\":\"ni\"}".getBytes());
+            res.sendContent("{\"nihao\":\"ni\"}".getBytes());
         } else {
             res.setStatus(HttpStatus.NOT_FOUND);
-            res.setContent("{\"nihao\":\"ni\"}".getBytes());
+            res.sendContent("{\"nihao\":\"ni\"}".getBytes());
         }
     }
 
@@ -151,7 +151,7 @@ maven:
 
         res.setStatus(HttpStatus.SERVICE_UNAVAILABLE);
         res.setContentType(ContentType.APPLICATION_JSON);
-        res.setContent(body.getBytes());
+        res.sendContent(body.getBytes());
         }
     });
 

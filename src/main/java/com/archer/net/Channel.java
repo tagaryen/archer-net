@@ -115,10 +115,13 @@ public class Channel {
 	private SslContext sslCtx;
 	private HandlerList handlerList;
 	private ChannelFuture future;
-		public Channel() {
+	private Object attachment;
+	
+	public Channel() {
 		this(null);
 	}
-		public Channel(SslContext sslCtx) {
+	
+	public Channel(SslContext sslCtx) {
 		this.sslCtx = sslCtx;
 		this.clientSide = true;
 	}
@@ -214,5 +217,13 @@ public class Channel {
 	
 	protected long getChannelfd() {
 		return channelfd;
+	}
+
+	public Object getAttachment() {
+		return attachment;
+	}
+
+	public void setAttachment(Object attachment) {
+		this.attachment = attachment;
 	}
 }
