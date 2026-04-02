@@ -4,6 +4,8 @@ import javax.net.ssl.*;
 import javax.net.ssl.SSLEngineResult.HandshakeStatus;
 
 import com.archer.net.Bytes;
+import com.archer.net.http.HttpException;
+import com.archer.net.http.HttpStatus;
 import com.archer.net.http.multipart.FormData;
 import com.archer.net.http.multipart.MultipartParser;
 import com.archer.net.util.HexUtil;
@@ -68,40 +70,39 @@ public class NioRequest {
 	}
 
 
-    public static NioResponse get(String httpUrl) throws IOException {
+    public static NioResponse get(String httpUrl) {
         return get(httpUrl, null);
     }
 
-    public static NioResponse post(String httpUrl, byte[] body) throws IOException {
+    public static NioResponse post(String httpUrl, byte[] body) {
         return post(httpUrl, body, null);
     }
 
-    public static NioResponse put(String httpUrl, byte[] body) throws IOException {
+    public static NioResponse put(String httpUrl, byte[] body) {
         return put(httpUrl, body, null);
     }
 
-    public static NioResponse delete(String httpUrl, byte[] body) throws IOException {
+    public static NioResponse delete(String httpUrl, byte[] body) {
         return delete(httpUrl, body, null);
     }
 
-    public static NioResponse get(String httpUrl, Options options) throws IOException {
+    public static NioResponse get(String httpUrl, Options options) {
         return request("GET", httpUrl, (byte[])null, options);
     }
 
-    public static NioResponse post(String httpUrl, byte[] body, Options options) throws IOException {
+    public static NioResponse post(String httpUrl, byte[] body, Options options) {
         return request("POST", httpUrl, body, options);
     }
 
-    public static NioResponse put(String httpUrl, byte[] body, Options options) throws IOException {
+    public static NioResponse put(String httpUrl, byte[] body, Options options) {
         return request("PUT", httpUrl, body, options);
     }
 
-    public static NioResponse delete(String httpUrl, byte[] body, Options options) throws IOException {
+    public static NioResponse delete(String httpUrl, byte[] body, Options options) {
         return request("DELETE", httpUrl, body, options);
     }
 	
-	public static NioResponse request(String method, String httpUrl, byte[] body, Options option)
-			throws IOException {
+	public static NioResponse request(String method, String httpUrl, byte[] body, Options option) {
 		if(method == null || httpUrl == null) {
 			throw new NullPointerException();
 		}
@@ -112,39 +113,38 @@ public class NioRequest {
 			body = new byte[0];
 		}
 		HttpUrl url = HttpUrl.parse(httpUrl);
-    	
+
+		SocketChannel socketChannel = null;
+
     	SSLEngine engine = null;
     	BufferSet buf = null;
-    	if(url.isHttps()) {
-    		SSLContext ctx = null;
-    		try {
-    			ctx = SSLContext.getInstance(option.getSslProtocol());
-    		} catch(NoSuchAlgorithmException e) {
-    			throw new SSLException("known ssl protocol " + option.getSslProtocol());
-    		}
-    		TrustManager[] trustManager;
-    		if(option.isVerifyCert()) {
-    			trustManager = option.getTrustManager();
-    		} else {
-    			trustManager = NULL_TRUSTED_MGR;
-    		}
-			try {
-				ctx.init(option.getKeyManager(), trustManager, null);
-			} catch (KeyManagementException e) {
-				throw new IOException(e);
-			}
-    		engine = ctx.createSSLEngine(url.getHost(), url.getPort());
-            engine.setUseClientMode(true);
-			buf = new BufferSet(BUFFER_SIZE, engine.getSession().getPacketBufferSize());
-    	}
-
-		SocketChannel socketChannel = SocketChannel.open();
-    	socketChannel.configureBlocking(false);
-    	SelectionKey key = socketChannel.register(selector, 
-    			SelectionKey.OP_CONNECT);
-    	socketChannel.connect(url.getAddress());
     	
 		try {
+			socketChannel = SocketChannel.open();
+	    	if(url.isHttps()) {
+	    		SSLContext ctx = null;
+	    		try {
+	    			ctx = SSLContext.getInstance(option.getSslProtocol());
+	    		} catch(NoSuchAlgorithmException e) {
+	    			throw new SSLException("known ssl protocol " + option.getSslProtocol());
+	    		}
+	    		TrustManager[] trustManager;
+	    		if(option.isVerifyCert()) {
+	    			trustManager = option.getTrustManager();
+	    		} else {
+	    			trustManager = NULL_TRUSTED_MGR;
+	    		}
+				ctx.init(option.getKeyManager(), trustManager, null);
+	    		engine = ctx.createSSLEngine(url.getHost(), url.getPort());
+	            engine.setUseClientMode(true);
+				buf = new BufferSet(BUFFER_SIZE, engine.getSession().getPacketBufferSize());
+	    	}
+
+	    	socketChannel.configureBlocking(false);
+	    	SelectionKey key = socketChannel.register(selector, 
+	    			SelectionKey.OP_CONNECT);
+	    	socketChannel.connect(url.getAddress());
+	    	
 	    	long start = System.currentTimeMillis(), end;
 	    	int state = CONNECT_STATE;
 	    	boolean sended = false;
@@ -187,13 +187,19 @@ public class NioRequest {
 	    			key.interestOps(SelectionKey.OP_READ);
 	    		}
 	    	}
+		} catch(Exception e) {
+			if(e instanceof HttpException) {
+				throw (HttpException)e;
+			}
+			throw new HttpException(HttpStatus.BAD_REQUEST, e);
 		} finally {
-			closeConnection(socketChannel, engine, buf);
+			try {
+				closeConnection(socketChannel, engine, buf);
+			} catch (IOException ignore) {}
 		}
 	}
 
-	public static NioResponse request(String method, String httpUrl, FormData body, Options option)
-			throws IOException {
+	public static NioResponse request(String method, String httpUrl, FormData body, Options option) {
 		if(method == null || httpUrl == null) {
 			throw new NullPointerException();
 		}
@@ -215,36 +221,33 @@ public class NioRequest {
     	
     	SSLEngine engine = null;
     	BufferSet buf = null;
-    	if(url.isHttps()) {
-    		SSLContext ctx = null;
-    		try {
-    			ctx = SSLContext.getInstance(option.getSslProtocol());
-    		} catch(NoSuchAlgorithmException e) {
-    			throw new SSLException("known ssl protocol " + option.getSslProtocol());
-    		}
-    		TrustManager[] trustManager;
-    		if(option.isVerifyCert()) {
-    			trustManager = option.getTrustManager();
-    		} else {
-    			trustManager = NULL_TRUSTED_MGR;
-    		}
-			try {
-				ctx.init(option.getKeyManager(), trustManager, null);
-			} catch (KeyManagementException e) {
-				throw new IOException(e);
-			}
-    		engine = ctx.createSSLEngine(url.getHost(), url.getPort());
-            engine.setUseClientMode(true);
-			buf = new BufferSet(BUFFER_SIZE, engine.getSession().getPacketBufferSize());
-    	}
 
-		SocketChannel socketChannel = SocketChannel.open();
-    	socketChannel.configureBlocking(false);
-    	SelectionKey key = socketChannel.register(selector, 
-    			SelectionKey.OP_CONNECT);
-    	socketChannel.connect(url.getAddress());
+		SocketChannel socketChannel = null;
     	
 		try {
+	    	if(url.isHttps()) {
+	    		SSLContext ctx = SSLContext.getInstance(option.getSslProtocol());
+	    		TrustManager[] trustManager;
+	    		if(option.isVerifyCert()) {
+	    			trustManager = option.getTrustManager();
+	    		} else {
+	    			trustManager = NULL_TRUSTED_MGR;
+	    		}
+				try {
+					ctx.init(option.getKeyManager(), trustManager, null);
+				} catch (KeyManagementException e) {
+					throw new IOException(e);
+				}
+	    		engine = ctx.createSSLEngine(url.getHost(), url.getPort());
+	            engine.setUseClientMode(true);
+				buf = new BufferSet(BUFFER_SIZE, engine.getSession().getPacketBufferSize());
+	    	}
+	    	socketChannel = SocketChannel.open();
+	    	socketChannel.configureBlocking(false);
+	    	SelectionKey key = socketChannel.register(selector, 
+	    			SelectionKey.OP_CONNECT);
+	    	socketChannel.connect(url.getAddress());
+	    	
 	    	long start = System.currentTimeMillis(), end;
 	    	int state = CONNECT_STATE;
 	    	boolean sended = false;
@@ -307,8 +310,15 @@ public class NioRequest {
 	    			key.interestOps(SelectionKey.OP_READ);
 	    		}
 	    	}
+		} catch(Exception e) {
+			if(e instanceof HttpException) {
+				throw (HttpException)e;
+			}
+			throw new HttpException(HttpStatus.BAD_REQUEST, e);
 		} finally {
-			closeConnection(socketChannel, engine, buf);
+			try {
+				closeConnection(socketChannel, engine, buf);
+			} catch (IOException ignore) {}
 		}
 	}
 	
@@ -423,7 +433,7 @@ public class NioRequest {
 
 	private static byte[] read(SocketChannel socketChannel, 
 							 SSLEngine engine, 
-							 BufferSet buf) throws IOException  {
+							 BufferSet buf) throws IOException {
         int appBufferSize = engine.getSession().getApplicationBufferSize();
         int packetBufferSize = engine.getSession().getPacketBufferSize();
         int offset = 0, readCount = 0;
@@ -460,8 +470,8 @@ public class NioRequest {
                     	buf.peerNetData = handleBufferUnderflow(buf.peerNetData, packetBufferSize);
                         break;
                     case CLOSED:
-                        closeConnection(socketChannel, engine, buf);
-                        throw new SSLException("ssl closed.");
+//                        closeConnection(socketChannel, engine, buf);
+                        break;
                     default:
                         throw new IllegalStateException("Invalid SSL status: " + 
                         		result.getStatus());
@@ -620,7 +630,9 @@ public class NioRequest {
         	doHandshake(socketChannel, engine, buf);
         	engine.closeOutbound();
     	}
-        socketChannel.close();
+    	if(socketChannel != null) {
+            socketChannel.close();
+    	}
     }
 	
 	private static byte[] getRequestAsBytes(String method, HttpUrl url, Options option, byte[] body) {
