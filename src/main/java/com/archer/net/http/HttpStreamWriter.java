@@ -4,8 +4,6 @@ import com.archer.net.Bytes;
 import com.archer.net.ChannelContext;
 import com.archer.net.util.HexUtil;
 
-import java.nio.charset.StandardCharsets;
-
 public class HttpStreamWriter {
 
     private ChannelContext ctx;

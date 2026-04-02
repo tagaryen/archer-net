@@ -1,8 +1,10 @@
 package com.archer.net.http.client;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -182,8 +184,9 @@ public class NativeRequest {
 		if(oldHeaders != null) {
 			opt.headers.putAll(oldHeaders);
 		}
-		opt.headers.put("content-type", MultipartParser.MULTIPART_HEADER + body.getBoundary());
-		opt.headers.put("transfer-encoding", "chunked");
+		removeHeaders(opt.headers, "Content-Type", "Transfer-Encoding");
+		opt.headers.put("Content-Type", MultipartParser.MULTIPART_HEADER + body.getBoundary());
+		opt.headers.put("Transfer-Encoding", "chunked");
 		HttpUrl url = HttpUrl.parse(httpUrl);
 		Channel ch = prepareChannel(method, httpUrl, opt, url);
 		HttpRequestHandler handler = null;
@@ -230,6 +233,7 @@ public class NativeRequest {
 		if(oldHeaders != null) {
 			opt.headers.putAll(oldHeaders);
 		}
+		removeHeaders(opt.headers, "Content-Type", "Transfer-Encoding");
 		opt.headers.put("content-type", MultipartParser.MULTIPART_HEADER + body.getBoundary());
 		opt.headers.put("transfer-encoding", "chunked");
 		HttpUrl url = HttpUrl.parse(httpUrl);
@@ -347,7 +351,20 @@ public class NativeRequest {
 		}
 		return requestBytes;
 	}
-
+	
+	private static void removeHeaders(Map<String, String> headers, String...keys ) {
+		List<String> removeList = new ArrayList<>();
+		for(String key: keys) {
+			for(String k: headers.keySet()) {
+				if(k.toLowerCase().equals(key.toLowerCase())) {
+					removeList.add(k);
+				}
+			}
+		}
+		for(String key: removeList) {
+			headers.remove(key);
+		}
+	}
 	
 	public static class Options {
     	

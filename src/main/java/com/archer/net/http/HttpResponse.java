@@ -142,7 +142,6 @@ public class HttpResponse {
 		headers.remove(HEADER_CONTENT_LENGTH.toLowerCase());
 		headers.put(HEADER_TRANSFER_ENCODING.toLowerCase(), CHUNKED);
 		this.contentLength = -1;
-		Bytes t = toBytes();
 		ctx.toLastOnWrite(toBytes());
 
 		return new HttpStreamWriter(ctx);

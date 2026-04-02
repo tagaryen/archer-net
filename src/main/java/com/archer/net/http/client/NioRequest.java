@@ -3,6 +3,11 @@ package com.archer.net.http.client;
 import javax.net.ssl.*;
 import javax.net.ssl.SSLEngineResult.HandshakeStatus;
 
+import com.archer.net.Bytes;
+import com.archer.net.http.multipart.FormData;
+import com.archer.net.http.multipart.MultipartParser;
+import com.archer.net.util.HexUtil;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -13,8 +18,10 @@ import java.nio.channels.SocketChannel;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -78,7 +85,7 @@ public class NioRequest {
     }
 
     public static NioResponse get(String httpUrl, Options options) throws IOException {
-        return request("GET", httpUrl, null, options);
+        return request("GET", httpUrl, (byte[])null, options);
     }
 
     public static NioResponse post(String httpUrl, byte[] body, Options options) throws IOException {
@@ -182,6 +189,140 @@ public class NioRequest {
 	    	}
 		} finally {
 			closeConnection(socketChannel, engine, buf);
+		}
+	}
+
+	public static NioResponse request(String method, String httpUrl, FormData body, Options option)
+			throws IOException {
+		if(method == null || httpUrl == null) {
+			throw new NullPointerException();
+		}
+		if(option == null) {
+			option = new Options();
+		}
+		if(body == null) {
+			throw new NullPointerException("body can not be null");
+		}
+		Map<String, String> oldHeaders = option.getHeaders();
+		option.headers = new HashMap<>();
+		if(oldHeaders != null) {
+			option.headers.putAll(oldHeaders);
+		}
+		removeHeaders(option.headers, "Content-Type", "Transfer-Encoding");
+		option.headers.put("Content-Type", MultipartParser.MULTIPART_HEADER + body.getBoundary());
+		option.headers.put("Transfer-Encoding", "chunked");
+		HttpUrl url = HttpUrl.parse(httpUrl);
+    	
+    	SSLEngine engine = null;
+    	BufferSet buf = null;
+    	if(url.isHttps()) {
+    		SSLContext ctx = null;
+    		try {
+    			ctx = SSLContext.getInstance(option.getSslProtocol());
+    		} catch(NoSuchAlgorithmException e) {
+    			throw new SSLException("known ssl protocol " + option.getSslProtocol());
+    		}
+    		TrustManager[] trustManager;
+    		if(option.isVerifyCert()) {
+    			trustManager = option.getTrustManager();
+    		} else {
+    			trustManager = NULL_TRUSTED_MGR;
+    		}
+			try {
+				ctx.init(option.getKeyManager(), trustManager, null);
+			} catch (KeyManagementException e) {
+				throw new IOException(e);
+			}
+    		engine = ctx.createSSLEngine(url.getHost(), url.getPort());
+            engine.setUseClientMode(true);
+			buf = new BufferSet(BUFFER_SIZE, engine.getSession().getPacketBufferSize());
+    	}
+
+		SocketChannel socketChannel = SocketChannel.open();
+    	socketChannel.configureBlocking(false);
+    	SelectionKey key = socketChannel.register(selector, 
+    			SelectionKey.OP_CONNECT);
+    	socketChannel.connect(url.getAddress());
+    	
+		try {
+	    	long start = System.currentTimeMillis(), end;
+	    	int state = CONNECT_STATE;
+	    	boolean sended = false;
+	    	while(true) {
+	    		end = System.currentTimeMillis();
+	    		if(end >= start + option.getConnectTimeout() && state == CONNECT_STATE) {
+	    			throw new IOException("connect timeout");
+	    		}
+	    		if(end >= start + option.getReadTimeout() && state == READ_STATE) {
+	    			throw new IOException("read timeout");
+	    		}
+	    		
+	    		doSelect(option.getConnectTimeout());
+	    		if(key.isConnectable() && socketChannel.finishConnect()) {
+	    			key.interestOps(SelectionKey.OP_WRITE | SelectionKey.OP_READ);
+	    			if(url.isHttps()) {
+	    				engine.beginHandshake();
+	    				doHandshake(socketChannel, engine, buf);
+	    			}
+	    			start = System.currentTimeMillis();
+	    			state = READ_STATE;
+	    		}
+	    		if(key.isReadable()) {
+	    			byte[] res;
+	    			if(url.isHttps()) {
+	    				res = read(socketChannel, engine, buf);
+	    			} else {
+		    			res = read(socketChannel);
+	    			}
+	    			return NioResponse.parseResponseBytes(res);
+	    		}
+	    		if(key.isWritable() && !sended) {
+	    			byte[] data = getRequestAsBytes(method, url, option, null);
+	    			if(url.isHttps()) {
+	    				write(socketChannel, engine, data, buf);
+    					Bytes out = null;
+						Bytes chunk = new Bytes(FormData.CACHE_SIZE + 16);
+						while((out = body.read()) != null) {
+							chunk.clear();
+							chunk.write((HexUtil.intToHex(out.available()) + "\r\n").getBytes());
+							chunk.readFromBytes(out);
+							chunk.write("\r\n".getBytes());
+		    				write(socketChannel, engine, chunk.readAll(), buf);
+						}
+	    				write(socketChannel, engine, "0\r\n\r\n".getBytes(), buf);
+	    			} else {
+		    	    	write(socketChannel, data);
+    					Bytes out = null;
+						Bytes chunk = new Bytes(FormData.CACHE_SIZE + 16);
+						while((out = body.read()) != null) {
+							chunk.clear();
+							chunk.write((HexUtil.intToHex(out.available()) + "\r\n").getBytes());
+							chunk.readFromBytes(out);
+							chunk.write("\r\n".getBytes());
+		    				write(socketChannel, chunk.readAll());
+						}
+	    				write(socketChannel, "0\r\n\r\n".getBytes());
+	    			}
+	    			sended = true;
+	    			key.interestOps(SelectionKey.OP_READ);
+	    		}
+	    	}
+		} finally {
+			closeConnection(socketChannel, engine, buf);
+		}
+	}
+	
+	private static void removeHeaders(Map<String, String> headers, String...keys ) {
+		List<String> removeList = new ArrayList<>();
+		for(String key: keys) {
+			for(String k: headers.keySet()) {
+				if(k.toLowerCase().equals(key.toLowerCase())) {
+					removeList.add(k);
+				}
+			}
+		}
+		for(String key: removeList) {
+			headers.remove(key);
 		}
 	}
 	
@@ -481,7 +622,7 @@ public class NioRequest {
     	}
         socketChannel.close();
     }
-   
+	
 	private static byte[] getRequestAsBytes(String method, HttpUrl url, Options option, byte[] body) {
 		Map<String, String> headers = option.getHeaders();
 		Map<String, String> newHeaders = new HashMap<>(DEFAULT_HEADER_SIZE);
