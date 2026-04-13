@@ -38,6 +38,7 @@ public class NativeResponse {
     
     private static final String ERR_MSG = "parse http response failed. ";
 	
+    private Bytes buf = new Bytes(4 * 1024);
     
     private Bytes chunkedBody = new Bytes();
     private Bytes remainBody = new Bytes();
@@ -107,9 +108,33 @@ public class NativeResponse {
 		return headerParsed;
 	}
 	
-	protected void parseHead(byte[] res) {
-		if(headerParsed) {
-			parseContent(res);
+	protected boolean checkHeadersCompletable(byte[] res) {
+		if(res[0] =='\n' && res[1] == '\n') {
+			return true;
+		}
+		for(int i = 3; i < res.length; i++) {
+			if(res[i-3] == '\r' && res[i-2] == '\n' && res[i-1] =='\r' && res[i] == '\n') {
+				return true;
+			}
+			if(res[i-1] =='\n' && res[i] == '\n') {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	protected void parseHead(byte[] content) {
+		byte[] res = null;
+		if(!checkHeadersCompletable(content)) {
+			this.buf.write(content);
+			return ;
+		} else {
+			if(this.buf.available() > 0) {
+				this.buf.write(content);
+				res = this.buf.readAll();
+			} else {
+				res = content;
+			}
 		}
 		try {
 			int i = 0, s;
@@ -270,7 +295,6 @@ public class NativeResponse {
 		    					break;
 	    					}
 	    				}
-	    				
 	    				if(len + i >= content.length) {
 	    					remainBody.write(content, s, content.length - s);
 	    					break;

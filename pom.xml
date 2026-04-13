@@ -4,7 +4,7 @@
 
   <groupId>io.github.tagaryen</groupId>
   <artifactId>archer-net</artifactId>
-  <version>1.3.27</version>
+  <version>1.4.0</version>
   <packaging>jar</packaging>
 
   <name>archer-net</name>
@@ -50,7 +50,7 @@
      <name>GitHub Archerxy Apache Maven Packages</name>
      <url>https://maven.pkg.github.com/Archerxy/archer-net</url>
    </repository>
-</distributionManagement>
+  </distributionManagement>
 
   <build>
     <finalName>archer-net-${project.version}</finalName>
@@ -137,5 +137,6 @@
       </plugin>
     </plugins>
   </build>
+  
 </project>
 

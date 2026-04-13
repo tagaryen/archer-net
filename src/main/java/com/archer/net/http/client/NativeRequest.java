@@ -38,7 +38,7 @@ public class NativeRequest {
 	private static final String DEFAULT_CONTENT_ENCODE = "utf-8";
 	private static final String[] HEADER_KEY = {"user-agent", "connection", "content-type", "accept"};
 	private static final String[] HEADER_VAL = 
-		{"Archer-Net/Java", "close", "application/x-www-form-urlencoded",
+		{"Archer-Net/Java", "keep-alive", "application/x-www-form-urlencoded",
 		 "text/html, image/gif, image/jpeg, *; q=.2, */*; q=.2"};
 
     public static NativeResponse get(String httpUrl) {
@@ -572,9 +572,9 @@ public class NativeRequest {
 		@Override
 		public void onRead(ChannelContext ctx, Bytes input) {
 			if(res.headerParsed()) {
-				res.parseContent(input.readAll());
+				res.parseContent(input.array());
 			} else {
-				res.parseHead(input.readAll());
+				res.parseHead(input.array());
 				if(this.onchunk != null && this.callback != null) {
 					this.callback.accept(res);
 				}
@@ -650,6 +650,7 @@ public class NativeRequest {
 		Bytes requestData;
 		HttpException err;
 		long timeout;
+		long start = System.currentTimeMillis();
 		FormData form = null;
 		
 		HttpRequestHandler(long timeout, Bytes requestData) {
@@ -661,7 +662,6 @@ public class NativeRequest {
 			if(err != null) {
 				return ;
 			}
-			long start = System.currentTimeMillis();
 			synchronized(lock) {
 				try {
 					lock.wait(timeout);
@@ -682,9 +682,9 @@ public class NativeRequest {
 		@Override
 		public void onRead(ChannelContext ctx, Bytes input) {
 			if(res.headerParsed()) {
-				res.parseContent(input.readAll());
+				res.parseContent(input.array());
 			} else {
-				res.parseHead(input.readAll());
+				res.parseHead(input.array());
 			}
 			if(res.finished()) {
 				notifyLock();
@@ -697,6 +697,7 @@ public class NativeRequest {
 		@Override
 		public void onError(ChannelContext ctx, Throwable t) {
 			err = new HttpException(HttpStatus.SERVICE_UNAVAILABLE, t);
+			err.printStackTrace();
 			notifyLock();
 		}
 		@Override
@@ -725,6 +726,10 @@ public class NativeRequest {
 		public void onAccept(ChannelContext ctx) {}
 		@Override
 		public void onDisconnect(ChannelContext ctx) {
+			while(System.currentTimeMillis() < start + timeout && !res.finished()) {}
+			if(System.currentTimeMillis() - start >= timeout) {
+				err = new HttpException(HttpStatus.BAD_REQUEST.getCode(), "read timeout");
+			}
 			notifyLock();
 		}
 		@Override

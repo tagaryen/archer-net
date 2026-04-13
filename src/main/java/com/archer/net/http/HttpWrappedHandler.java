@@ -35,10 +35,10 @@ public abstract class HttpWrappedHandler implements Handler {
 		}
 		HttpRequest req = context.request;
 		HttpResponse res = context.response;
-		byte[] msg = in.readAll();
+		byte[] msg = in.array();
 
 		try {
-			if(req.isEmpty()) {
+			if(!req.headerParsed()) {
 				req.parse(msg);
 				res.setVersion(req.getHttpVersion());
 				String connection = req.getHeader("connection");

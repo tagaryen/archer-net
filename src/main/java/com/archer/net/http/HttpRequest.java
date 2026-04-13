@@ -49,6 +49,10 @@ public class HttpRequest {
     private static final String DEFAULT_ENCODING_KEY = "charset";
 	
     private volatile boolean finished = false; 
+    private volatile boolean headerParsed = false; 
+    
+
+    private Bytes buf = new Bytes(4 * 1024);
     
     private Bytes remainBody = new Bytes();
     private Bytes chunkedBody = new Bytes();
@@ -256,10 +260,35 @@ public class HttpRequest {
 		this.httpVersion = version;
 	}
 	
-	protected void parse(byte[] msg) throws IOException {
-		if(msg.length <= HttpRequest.OPTION.length()) {
-			throw new HttpException(HttpStatus.BAD_REQUEST);
+	private boolean checkHeadersCompletable(byte[] res) {
+		if(res[0] =='\n' && res[1] == '\n') {
+			return true;
 		}
+		for(int i = 3; i < res.length; i++) {
+			if(res[i-3] == '\r' && res[i-2] == '\n' && res[i-1] =='\r' && res[i] == '\n') {
+				return true;
+			}
+			if(res[i-1] =='\n' && res[i] == '\n') {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	protected void parse(byte[] req) throws IOException {
+		byte[] msg = null;
+		if(!checkHeadersCompletable(req)) {
+			this.buf.write(req);
+			return ;
+		} else {
+			this.buf.write(req);
+			if(this.buf.available() > 0) {
+				msg = this.buf.readAll();
+			} else {
+				msg = req;
+			}
+		}
+		
 		int i = 0, p = 0;
 		while(msg[i] != SPACE && i < HttpRequest.METHOD_LEN) {
 			i++;
@@ -400,10 +429,6 @@ public class HttpRequest {
 	}
 	
 	protected void putContent(byte[] content) {
-//		if(this.content == null) {
-//			throw new HttpException(HttpStatus.BAD_REQUEST.getCode(), 
-//					"content is not expected here.");
-//		}
 		if(isChunked) {
 			int s = 0, len = 0, state = CHUNKED_LEN;
 			if(remainBody.available() > 0) {
@@ -456,6 +481,10 @@ public class HttpRequest {
 	
 	protected boolean isFinished() {
 		return finished;
+	}
+	
+	protected boolean headerParsed() {
+		return headerParsed;
 	}
 	
 	protected boolean isEmpty() {

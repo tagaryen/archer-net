@@ -13,10 +13,8 @@ import com.archer.net.util.Sha256Util;
 final class Library {
 
 	private static final String WIN_LIB = "lib/libarnet.dll";
-	private static final String LINUX_LIB = "lib/libarnet.so";
-	
-	private static final String WINDOWS = "Windows";
-	private static final String LINUX = "Linux";
+	private static final String LINUX_X86_64_LIB = "lib/libarnet-x86-64.so";
+	private static final String LINUX_AARCH64_LIB = "lib/libarnet-aarch64.so";
 	
 	private static final String P_DIR = ".archer";
 	private static final String CUR_OS = System.getProperty("os.name");
@@ -41,12 +39,23 @@ final class Library {
 	
 	public static void loadLib() {
 		String resource = null;
-		if(CUR_OS.contains(WINDOWS)) {
+		
+		if(!Platform.is64Bit()) {
+			throw new RuntimeException("32Bit platform not supported.");
+		}
+		if(!Platform.isARM() && !Platform.isX86_64()) {
+			throw new RuntimeException("system arch must be one of 'arm','aarch','x86-64','amd64'");
+		}
+		if(Platform.isWindows()) {
 			resource = WIN_LIB;
-		} else if(CUR_OS.contains(LINUX)) {
-			resource = LINUX_LIB;
+		} else if(Platform.isLinux()) {
+			if(Platform.isARM()) {
+				resource = LINUX_AARCH64_LIB;
+			} else if(Platform.isX86_64()) {
+				resource = LINUX_X86_64_LIB;
+			}
 		} else {
-			throw new RuntimeException("platform "+CUR_OS+" not supported.");
+			throw new RuntimeException("platform '"+CUR_OS+"' not supported.");
 		}
 		
 		Path dstPath = Paths.get(HOME.toString(), resource);
