@@ -1,12 +1,15 @@
 package com.archer.net.test;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -130,7 +133,63 @@ public class HttpTest {
 		);
 	}
 	
+	
+    public static void uploadTest()
+    {
+    	FormData form = new FormData();
+    	try {
+			form.put("file", "ReadMe.ico", Files.readAllBytes(Paths.get("E:\\projects\\cppProject\\archer_multiples\\icon.ico")));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+    	String authKey = "e11!^cvvcs$a1@ad";
+    	String uri = "/archer/file-api/file-upload";
+    	String nonce = "1234567890123456";
+    	byte[] sig = SM4Util.encrypt((uri+nonce).getBytes(), authKey.getBytes());
+    	//WHCWsxX9qXMtVZDCTEE8NGsCEW4lTJMlPFL5xqwL YKoOka532GwO4/gBcy1Kxua
+    	//WHCWsxX9qXMtVZDCTEE8NGsCEW4lTJMlPFL5xqwL+YKoOka532GwO4/gBcy1Kxua
+    	try {
+			System.out.println("sig="+URLEncoder.encode(Base64.getEncoder().encodeToString(sig), "UTF-8"));
+		} catch (UnsupportedEncodingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+    	String signature = "";
+    	try {
+			signature = URLEncoder.encode(Base64.getEncoder().encodeToString(sig), "UTF-8");
+		} catch (UnsupportedEncodingException ignore) {}
+    	String url = "http://127.0.0.1:9617" + uri + "?nonce="+nonce+"&signature="+signature+"&filename=ReadMe.ico";
+    	System.out.println(url);
+    	
+    	NativeResponse res = NativeRequest.request("POST", url, form, null);
+    	System.out.println(new String(res.getBody()));
+    	
+    }
+	
 	public static void main(String args[]) {
+		
+
+//    	String authKey = "e11!^cvvcs$a1@ad";
+//    	String uri = "/archer/file-api/file-view";
+//    	String nonce = "1234567890123456";
+//    	byte[] sig = SM4Util.encrypt((uri+nonce).getBytes(), authKey.getBytes());
+//    	//WHCWsxX9qXMtVZDCTEE8NGsCEW4lTJMlPFL5xqwL YKoOka532GwO4/gBcy1Kxua
+//    	//WHCWsxX9qXMtVZDCTEE8NGsCEW4lTJMlPFL5xqwL+YKoOka532GwO4/gBcy1Kxua
+//    	try {
+//			System.out.println("sig="+URLEncoder.encode(Base64.getEncoder().encodeToString(sig), "UTF-8"));
+//		} catch (UnsupportedEncodingException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
+//    	String signature = "";
+//    	try {
+//			signature = URLEncoder.encode(Base64.getEncoder().encodeToString(sig), "UTF-8");
+//		} catch (UnsupportedEncodingException ignore) {}
+//    	String url = "http://127.0.0.1:9617" + uri + "?nonce="+nonce+"&signature="+signature+"&filename=ReadMe.md";
+//    	System.out.println(url);
+		
+		uploadTest();
+		
 //		NativeRequest.getAsync("http://10.32.122.172:9610/nihao/hhh", (res) -> {
 //			System.out.println("9610 *****");
 //		}, null);
@@ -139,7 +198,7 @@ public class HttpTest {
 //		}, null);
 //		sslTest();
 		
-		httpServer();
+//		httpServer();
 //		uploadFile();
 //		listTest();
 //		streamUploadFile();

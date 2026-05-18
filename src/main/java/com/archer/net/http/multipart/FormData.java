@@ -149,6 +149,7 @@ public class FormData {
             		ret.write( String.format("Content-Type: %s\r\n\r\n", p.getContentType()).getBytes(StandardCharsets.UTF_8));
                     if(p.getContent() != null) {
                     	ret.write(p.getContent());
+                    	i++;
                     } else if(p.getFile() != null) {
                     	int needed = CACHE_SIZE - ret.available();
                     	long total = p.getFile().length();
