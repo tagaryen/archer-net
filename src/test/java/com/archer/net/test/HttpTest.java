@@ -59,14 +59,14 @@ public class HttpTest {
 	public static void httpServer() {
 		HttpServer server = new HttpServer();
 		try {
-			server.listen("127.0.0.1", 9607, new HttpWrappedHandler() {
+			server.listen("127.0.0.1", 9666, new HttpWrappedHandler() {
 
 				@Override
 				public void handle(HttpRequest req, HttpResponse res) throws Exception {
 					System.out.println(new String(req.getContent()));
 //					res.sendContent("你好按实际库存能尽快四川南充开设店铺数据的【vOK我从靠谱参考参考视频课程破碎锤".getBytes());
 					HttpStreamWriter writer = res.streamWriter();
-					writer.write("你好按实际库存能尽快四川南充开设店铺数据的【vOK我从靠谱参考参考视频课程破碎锤".getBytes(StandardCharsets.UTF_8));
+					writer.write("nihaowa".getBytes(StandardCharsets.UTF_8));
 					writer.end();
 				}
 
@@ -188,7 +188,7 @@ public class HttpTest {
 //    	String url = "http://127.0.0.1:9617" + uri + "?nonce="+nonce+"&signature="+signature+"&filename=ReadMe.md";
 //    	System.out.println(url);
 		
-		uploadTest();
+//		uploadTest();
 		
 //		NativeRequest.getAsync("http://10.32.122.172:9610/nihao/hhh", (res) -> {
 //			System.out.println("9610 *****");
@@ -198,7 +198,7 @@ public class HttpTest {
 //		}, null);
 //		sslTest();
 		
-//		httpServer();
+		httpServer();
 //		uploadFile();
 //		listTest();
 //		streamUploadFile();
