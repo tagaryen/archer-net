@@ -22,7 +22,7 @@ public class HttpServer {
 		this.threadNum = threadNum;
 	}
 	
-	public void listen(String host, int port, HttpWrappedHandler handler) throws HttpServerException {
+	public void listen(String host, int port, HttpAbstractHandler handler) throws HttpServerException {
 		HandlerList handlerList = new HandlerList();
 		handlerList.add(handler);
 		if(sslCtx != null) {

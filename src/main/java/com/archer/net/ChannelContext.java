@@ -79,6 +79,14 @@ public class ChannelContext {
 		channel.close();
 	}
 	
+	public void addChannelAttachment(Object obj) {
+		this.channel.setAttachment(obj);
+	}
+
+	public Object getChannelAttachment() {
+		return this.channel.getAttachment();
+	}
+	
 	protected void onAccept() {
 		handler.onAccept(this);
 	}

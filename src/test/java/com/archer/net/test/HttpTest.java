@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.archer.net.Bytes;
 import com.archer.net.http.*;
 import com.archer.net.http.client.NativeRequest;
 import com.archer.net.http.client.NativeResponse;
@@ -58,22 +59,39 @@ public class HttpTest {
 	}
 	public static void httpServer() {
 		HttpServer server = new HttpServer();
+		HttpUpgradeHandler handler = new HttpUpgradeHandler() {
+
+			@Override
+			public void handle(HttpRequest req, HttpResponse res) {
+				System.out.println(new String(req.getContent()));
+				HttpStreamWriter writer = res.streamWriter();
+				writer.write("nihaowa".getBytes(StandardCharsets.UTF_8));
+				writer.end();
+			}
+
+			@Override
+			public void handleException(HttpRequest req, HttpResponse res, Throwable t) {
+				t.printStackTrace();
+			}
+		};
+		handler.addWebSocketListenner(new WebSocketListenner("/wstest") {
+
+			public void onConnected(WebSocketChannel wsChannel) {
+				System.out.println("on connected ws");
+				wsChannel.send(new Bytes("nihao client".getBytes()));
+			}
+			public void onMessage(WebSocketChannel wsChannel, Bytes in) {
+				System.out.println("on message ws: " + new String(in.readAll()));
+			}
+			public void onError(WebSocketChannel wsChannel, Throwable t) {
+				
+			}
+			public void onClose(WebSocketChannel wsChannel) {
+				
+			}
+		});
 		try {
-			server.listen("127.0.0.1", 9666, new HttpWrappedHandler() {
-
-				@Override
-				public void handle(HttpRequest req, HttpResponse res) throws Exception {
-					System.out.println(new String(req.getContent()));
-//					res.sendContent("你好按实际库存能尽快四川南充开设店铺数据的【vOK我从靠谱参考参考视频课程破碎锤".getBytes());
-					HttpStreamWriter writer = res.streamWriter();
-					writer.write("nihaowa".getBytes(StandardCharsets.UTF_8));
-					writer.end();
-				}
-
-				@Override
-				public void handleException(HttpRequest req, HttpResponse res, Throwable t) {
-					t.printStackTrace();
-				}});
+			server.listen("127.0.0.1", 9666, handler);
 		} catch (HttpServerException e) {
 			e.printStackTrace();
 		}
