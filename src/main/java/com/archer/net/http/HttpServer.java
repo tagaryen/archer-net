@@ -35,7 +35,7 @@ public class HttpServer {
 		}
 		server.handlerList(handlerList);
 		if(threadNum > 0) {
-			server.setLoopThreads(threadNum);
+			server.setReadThreads(threadNum);
 		}
 		server.listen(host, port);
 	}

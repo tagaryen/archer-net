@@ -1,11 +1,14 @@
 package com.archer.net;
 
+import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.archer.net.ssl.SslContext;
 
 public class Channel {
+	
+	private static final int BUF_SIZE = 4 * 1024;
 	
 	static {
 		Library.loadDetectLibrary();
@@ -15,7 +18,11 @@ public class Channel {
 
 	protected static native void setChannel(long channelfd, Channel channel);
 
-	protected static native void write(long channelfd, byte[] data);
+	protected static native void write(long channelfd, ByteBuffer write, int length);
+
+	protected static native int read(long channelfd, ByteBuffer read, int length);
+
+	protected static native int readableSize(long channelfd);
 
 	protected static native boolean connect(long channelfd, byte[] host, int port);
 
@@ -31,9 +38,9 @@ public class Channel {
 			handlerList.onConnect(this);
 		}
 	}
-	protected void onRead(byte[] data) {
+	protected void onRead() {
 		if(handlerList != null) {
-			handlerList.onRead(this, data);
+			handlerList.onRead(this);
 		}
 	}
 	protected void onDisconnect() {
@@ -55,17 +62,19 @@ public class Channel {
 			}
 		}
 		if(handlerList != null) {
-			handlerList.onError(this, msg);
-		}
-	}
-	protected void onCertCallback(byte[] crt) {
-		if(handlerList != null) {
-			handlerList.onCertCallback(this, crt);
+			handlerList.onError(this, new ChannelException(new String(msg).trim()));
 		}
 	}
 	
+	/**
+	 * @since 1.5.0 this method will never be called since 1.5.0
+	 * */
+	@Deprecated()
+	protected void onCertCallback(byte[] crt) {
+	}
+	
 	protected void throwError(byte[] msg) {
-		throw new ChannelException(new String(msg));
+		throw new ChannelException(new String(msg).trim());
 	}
 	
 	
@@ -117,6 +126,10 @@ public class Channel {
 	private ChannelFuture future;
 	private Object attachment;
 	
+	private ChannelContext ctx = null;
+	private ByteBuffer readBuf = ByteBuffer.allocateDirect(BUF_SIZE);
+	private ByteBuffer writeBuf = ByteBuffer.allocateDirect(BUF_SIZE);
+	
 	public Channel() {
 		this(null);
 	}
@@ -136,6 +149,24 @@ public class Channel {
 		this.clientSide = false;
 		this.host = new String(host);
 		setChannel(channelfd, this);
+	}
+	
+	protected ChannelContext ctx() {
+		if(ctx == null) {
+			if(handlerList == null || handlerList.handlerCount() <= 0) {
+				return null;
+			}
+			int index = 0;
+			ChannelContext head = new ChannelContext(handlerList.at(index++), this);
+			ChannelContext cur, last = head;
+			for(; index < handlerList.handlerCount(); index++) {
+				cur = new ChannelContext(handlerList.at(index), this);
+				cur.last(last);
+				last = cur;
+			}
+			ctx = head;
+		};
+		return ctx;
 	}
 	
 	private synchronized void initChannelfd() {
@@ -184,8 +215,101 @@ public class Channel {
 		}
 	}
 	
-	public void write(byte[] data) {
-		write(channelfd, data);
+	public void write(byte[] output) {
+		write(output, 0, output.length);
+	}
+	
+	public void write(byte[] output, int off, int len) {
+		if(output.length < off + len) {
+			len = output.length - off;
+		}
+		int writeCnt = 0;
+		while((writeCnt + BUF_SIZE) < len) {
+			writeBuf.clear();
+			writeBuf.put(output, off, BUF_SIZE);
+			write(channelfd, writeBuf, BUF_SIZE);
+			off += BUF_SIZE;
+			writeCnt += BUF_SIZE;
+		}
+		writeBuf.clear();
+		writeBuf.put(output, off, (len - writeCnt));
+		write(channelfd, writeBuf, len - writeCnt);
+	}
+
+	public byte[] read(int len) {
+		byte[] input = null;
+		int size = readableSize(channelfd);
+		if(size < len) {
+			input = new byte[size];
+		} else {
+			input = new byte[len];
+		}
+		read(input, 0, input.length);
+		return input;
+	}
+	
+	public int read(byte[] input) {
+		return read(input, 0, input.length);
+	}
+	
+	public int read(byte[] input, int off, int len) {
+		if(input.length < off + len) {
+			len = input.length - off;
+		}
+		boolean readEnd = false;
+		int readCnt = 0, reads = 0;
+		while((readCnt + BUF_SIZE) < len) {
+			readBuf.clear();
+			reads = read(channelfd, readBuf, BUF_SIZE);
+			if(reads == 0) {
+				readEnd = true;
+				break;
+			}
+			readBuf.get(input, off, reads);
+			
+			readCnt += reads;
+		}
+		if(!readEnd) {
+			readBuf.clear();
+			reads = read(channelfd, readBuf, len - readCnt);
+			readBuf.get(input, off, reads);
+			readCnt += reads;
+		}
+		return readCnt;
+	}
+	
+	public void writeInt32(int n) {
+		writeBuf.clear();
+		writeBuf.putInt(n);
+		write(channelfd, writeBuf, 4);
+	}
+	
+	public void writeInt64(long n) {
+		writeBuf.clear();
+		writeBuf.putLong(n);
+		write(channelfd, writeBuf, 8);
+	}
+	
+	public int readInt32() {
+		if(readableSize(channelfd) < 4) {
+			return -1;
+		}
+    	readBuf.clear();
+		read(channelfd, readBuf, 4);
+    	return readBuf.getInt();
+	}
+	
+	public long readInt64() {
+		if(readableSize(channelfd) < 8) {
+			return -1;
+		}
+    	readBuf.clear();
+		read(channelfd, readBuf, 8);
+		return readBuf.getLong();
+	}
+	
+	public int readableSize() {
+		return readableSize(channelfd);
 	}
 	
 	public synchronized void close() {

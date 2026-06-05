@@ -8,15 +8,15 @@ class ThreadPool {
 	private Thread[] threads;
 	
 	private Object cond = new Object();
-	private ConcurrentLinkedQueue<PooledTask> queue = new ConcurrentLinkedQueue<>();
+	private ConcurrentLinkedQueue<ChannelContext> queue = new ConcurrentLinkedQueue<>();
 	
 	public ThreadPool(int threadNum) {
 		this.threads = new Thread[threadNum];
 		this.running = false;
 	}
 	
-	public void submit(Bytes bytes, ChannelContext ctx) {
-		queue.offer(new PooledTask(bytes, ctx));
+	public void submit(ChannelContext ctx) {
+		queue.offer(ctx);
 		synchronized(cond) {
 			cond.notify();
 		}
@@ -45,16 +45,6 @@ class ThreadPool {
 		return running;
 	}
 	
-	private static class PooledTask {
-		Bytes bytes;
-		ChannelContext ctx;
-		
-		public PooledTask(Bytes bytes, ChannelContext ctx) {
-			this.bytes = bytes;
-			this.ctx = ctx;
-		}
-	}
-	
 	private static class PooledThread extends Thread {
 		
 		ThreadPool pool;
@@ -66,8 +56,8 @@ class ThreadPool {
 		@Override
 	    public void run() {
 			while(pool.running) {
-				PooledTask task = pool.queue.poll();
-				if(task == null) {
+				ChannelContext ctx = pool.queue.poll();
+				if(ctx == null) {
 					try {
 						synchronized(pool.cond) {
 							pool.cond.wait();
@@ -76,7 +66,7 @@ class ThreadPool {
 					
 					continue ;
 				}
-				task.ctx.onRead(task.bytes);
+				ctx.onRead();
 			}
 	    }
 	}

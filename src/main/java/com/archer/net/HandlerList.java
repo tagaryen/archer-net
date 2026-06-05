@@ -6,14 +6,15 @@ import com.archer.net.handler.HandlerException;
 public final class HandlerList {
     private static final int DEFAULT_SIZE = 16;
 
-    private ChannelContextContainer container;
 	private Handler[] handlers = new Handler[DEFAULT_SIZE];
 	private int pos = 0;
 	
 	private ThreadPool pool = null;
 	
-	public HandlerList() {
-    	this.container = new ChannelContextContainer();
+	public HandlerList() {}
+	
+	public HandlerList(Handler ...handlers) {
+		add(handlers);
 	}
 	
 	protected HandlerList threadPool(ThreadPool pool) {
@@ -82,7 +83,7 @@ public final class HandlerList {
 	
 	
 	protected void onAccept(Channel channel) {
-		ChannelContext ctx = findChannelContext(channel);
+		ChannelContext ctx = channel.ctx();
 		try {
 			ctx.onAccept();
 		} catch(Exception e) {
@@ -91,7 +92,7 @@ public final class HandlerList {
 	}
 	
 	protected void onConnect(Channel channel) {
-		ChannelContext ctx = findChannelContext(channel);
+		ChannelContext ctx = channel.ctx();
 		try {
 			ctx.onConnect();
 		} catch(Exception e) {
@@ -99,13 +100,13 @@ public final class HandlerList {
 		}
 	}
 	
-	protected void onRead(Channel channel, byte[] data) {
-		ChannelContext ctx = findChannelContext(channel);
+	protected void onRead(Channel channel) {
+		ChannelContext ctx = channel.ctx();
 		if(pool != null) {
-			pool.submit(new Bytes(data), ctx);
+			pool.submit(ctx);
 		} else {
 			try {
-				ctx.onRead(new Bytes(data));
+				ctx.onRead();
 			} catch(Exception e) {
 				ctx.onError(e);
 			}	
@@ -113,8 +114,7 @@ public final class HandlerList {
 	}
 	
 	protected void onDisconnect(Channel channel) {
-		ChannelContext ctx = findChannelContext(channel);
-		container.remove(channel);
+		ChannelContext ctx = channel.ctx();
 		try {
 			ctx.onDisconnect();
 		} catch(Exception e) {
@@ -122,30 +122,20 @@ public final class HandlerList {
 		}	
 	}
 
-	protected void onError(Channel channel, byte[] msg) {
-		ChannelContext ctx = findChannelContext(channel);
-		String errMsg = new String(msg).trim();
+	protected void onError(Channel channel, Exception e) {
+		ChannelContext ctx = channel.ctx();
 		try {
-			ctx.onError(new ChannelException(errMsg));
-		} catch(Exception e) {
-			System.err.println("the last handler did not handle the exception.");
-			e.printStackTrace();
+			ctx.onError(e);
+		} catch(Exception ex) {
+			ex.printStackTrace();
 		}
 	}
-	
-	protected void onCertCallback(Channel channel, byte[] cert) {
-		ChannelContext ctx = findChannelContext(channel);
-		try {
-			ctx.onSslCertificate(cert);
-		} catch(Exception ignore) {}
-	}
 
-    protected ChannelContext findChannelContext(Channel ch) {
-    	ChannelContext ctx = container.findChannelContext(ch);
-    	if(ctx  == null) {
-    		return container.init(ch, this);
-    	}
-    	return ctx;
-    }
+	/**
+	 * @since 1.5.0 this method will never be called since 1.5.0
+	 * */
+	@Deprecated()
+	protected void onCertCallback(Channel channel, byte[] cert) {
+	}
 
 }

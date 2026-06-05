@@ -1,14 +1,13 @@
 package com.archer.net.http;
 
-import com.archer.net.Bytes;
-import com.archer.net.ChannelContext;
-
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+
+import com.archer.net.ChannelContext;
 
 public class HttpResponse {
 
@@ -167,7 +166,7 @@ public class HttpResponse {
 		content = null;
 	}
 	
-	public Bytes toBytes() {
+	public byte[] toBytes() {
 		StringBuilder sb = new StringBuilder(DEFAULT_HEADER_SIZE * BASE_HEADER_LEN);
 		String localVersion = version;
 		if(localVersion == null) {
@@ -214,17 +213,21 @@ public class HttpResponse {
 					.append(contentLength).append(ENTER);
 		}
 
-		Bytes resBytes = new Bytes();
+		sb.append(ENTER);
+		
+		byte[] head = null;
 		try {
-			resBytes.write(sb.toString().getBytes(encode));
+			head = sb.toString().getBytes(encode);
 		} catch (UnsupportedEncodingException e) {
 			throw new HttpException(HttpStatus.INTERNAL_SERVER_ERROR, e);
 		}
-		if(contentLength >= 0) {
-			resBytes.write(ENTER.getBytes());
-			if(content != null) {
-				resBytes.write(content);
-			}
+		byte[] resBytes = null;
+		if(content != null && content.length > 0) {
+			resBytes = new byte[head.length + content.length];
+			System.arraycopy(head, 0, resBytes, 0, head.length);
+			System.arraycopy(content, 0, resBytes, head.length, content.length);
+		} else {
+			resBytes = head;
 		}
 		return resBytes;
 	}

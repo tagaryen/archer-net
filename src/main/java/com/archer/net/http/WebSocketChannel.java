@@ -13,7 +13,7 @@ public class WebSocketChannel {
 	}
 
 	public void send(Bytes data) {
-		ctx.toLastOnWrite(wrapWebSocketMessage(data));
+		ctx.toLastOnWrite(wrapWebSocketMessage(data).readAll());
 	}
 	
 	public void close() {

@@ -81,7 +81,6 @@ public class ServerChannel {
 		}
 		if(pool != null) {
 			pool.start();
-			handlerList.threadPool(pool);
 		}
 		if(Debugger.enableDebug()) {
 			System.out.println("server listenning on " + port);

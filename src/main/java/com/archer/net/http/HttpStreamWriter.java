@@ -17,11 +17,10 @@ public class HttpStreamWriter {
         String hex = HexUtil.intToHex(data.length);
         chunk.write(("\r\n" + hex + "\r\n").getBytes());
         chunk.write(data);
-        ctx.toLastOnWrite(chunk);
+        ctx.toLastOnWrite(chunk.readAll());
     }
 
     public void end() {
-        Bytes end = new Bytes(("\r\n0\r\n\r\n").getBytes());
-        ctx.toLastOnWrite(end);
+        ctx.toLastOnWrite(("\r\n0\r\n\r\n").getBytes());
     }
 }

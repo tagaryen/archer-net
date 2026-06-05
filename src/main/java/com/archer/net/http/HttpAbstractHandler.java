@@ -1,6 +1,5 @@
 package com.archer.net.http;
 
-import com.archer.net.Bytes;
 import com.archer.net.Channel;
 import com.archer.net.ChannelContext;
 import com.archer.net.Debugger;
@@ -23,7 +22,7 @@ public abstract class HttpAbstractHandler implements Handler {
 	}
 
 	@Override
-	public void onRead(ChannelContext ctx, Bytes in) {
+	public void onRead(ChannelContext ctx) {
 		HttpContext context = (HttpContext) ctx.channel().getAttachment();
 		if(context == null) {
 			handleException(null, null, new NullPointerException("fetch http context error"));
@@ -31,18 +30,17 @@ public abstract class HttpAbstractHandler implements Handler {
 		}
 		HttpRequest req = context.request;
 		HttpResponse res = context.response;
-		byte[] msg = in.array();
-
+		int len = ctx.read(context.buf);
 		try {
 			if(!req.headerParsed()) {
-				req.parse(msg);
+				req.parse(context.buf, len);
 				res.setVersion(req.getHttpVersion());
 				String connection = req.getHeader("connection");
 				if(null != connection) {
 					res.setHeader("connection", connection);
 				}
 			} else {
-				req.putContent(msg);
+				req.putContent(context.buf, len);
 			}
 		} catch(Exception e) {
 			HttpStatus status;
@@ -68,15 +66,16 @@ public abstract class HttpAbstractHandler implements Handler {
 			if(Debugger.enableDebug()) {
 				System.out.println("http response, content-length is" + res.getContentLength());
 			}
-			if(HttpRequest.HTTP_10.equals(req.getHttpVersion())) {
-				ctx.close();
-			}
-			reset(req, res);
+			ctx.close();
+//			if(HttpRequest.HTTP_10.equals(req.getHttpVersion())) {
+//				ctx.close();
+//			}
+//			reset(req, res);
 		}
 	}
 	
 	@Override
-	public void onWrite(ChannelContext ctx, Bytes out) {
+	public void onWrite(ChannelContext ctx, byte[] out) {
 		ctx.toLastOnWrite(out);
 	}
 
@@ -103,8 +102,12 @@ public abstract class HttpAbstractHandler implements Handler {
 			handleException(req, res, t);
 		} catch(Exception ignore) {}
 	}
-	
+
+	/**
+	 * @since 1.5.0 this method will never be called since 1.5.0
+	 * */
 	@Override
+	@Deprecated
 	public void onSslCertificate(ChannelContext ctx, byte[] cert) {
 		//we do nothing here
 	}
@@ -118,6 +121,7 @@ public abstract class HttpAbstractHandler implements Handler {
 		
 		HttpRequest request;
 		HttpResponse response;
+		byte[] buf = new byte[4096];
 		
 		public HttpContext(String host, int port, ChannelContext ctx) {
 			this.request = new HttpRequest(host, port);

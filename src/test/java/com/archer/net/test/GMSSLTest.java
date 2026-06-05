@@ -40,7 +40,7 @@ public class GMSSLTest {
 				byte[] name = "xuyihahaha".getBytes();
 				out.writeInt32(name.length);
 				out.write(name);
-				ctx.write(out);
+				ctx.write(out.readAll());
 			}
 
 			@Override
@@ -57,7 +57,7 @@ public class GMSSLTest {
 			public void onMessage(ChannelContext ctx, MessageA input) {}
 
 			@Override
-			public MessageA decodeInput(Bytes in) {return null;}
+			public MessageA decodeInput(ChannelContext ctx) {return null;}
 		};
 		
 		Channel channel = new Channel(sslctx);

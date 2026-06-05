@@ -64,7 +64,7 @@ public class WebSocketServer {
 		}
 
 		@Override
-		public void onRead(ChannelContext ctx, Bytes in) {
+		public void onRead(ChannelContext ctx) {
 			
 			WsContext wsctx = (WsContext) ctx.getChannelAttachment();
 			if(wsctx == null) {
@@ -72,27 +72,27 @@ public class WebSocketServer {
 			}
 			HttpRequest req = wsctx.request;
 			HttpResponse res = wsctx.response;
+			int len = ctx.read(wsctx.buf);
 			
 			try {
 				if(wsctx.wschannel != null) {
-					if(wsctx.wschannel.parseWebSocketMessage(in)) {
+					if(wsctx.wschannel.parseWebSocketMessage(new Bytes(wsctx.buf, 0, len))) {
 						wsctx.wslistenner.onMessage(wsctx.wschannel, wsctx.wschannel.resetAndGet());
 					} else {
 						ctx.close();
 						wsctx.wslistenner.onClose(wsctx.wschannel);
 					}
 				} else {
-					byte[] msg = in.readAll();
 					try {
 						if(req.isEmpty()) {
-							req.parse(msg);
+							req.parse(wsctx.buf, len);
 							res.setVersion(req.getHttpVersion());
 							String connection = req.getHeader("connection");
 							if(null != connection) {
 								res.setHeader("connection", connection);
 							}
 						} else {
-							req.putContent(msg);
+							req.putContent(wsctx.buf, len);
 						}
 					} catch(Exception e) {
 						HttpStatus status;
@@ -139,7 +139,7 @@ public class WebSocketServer {
 		}
 		
 		@Override
-		public void onWrite(ChannelContext ctx, Bytes out) {}
+		public void onWrite(ChannelContext ctx, byte[] out) {}
 		
 		@Override
 		public void onDisconnect(ChannelContext ctx) {
@@ -170,6 +170,7 @@ public class WebSocketServer {
 		HttpRequest request;
 		HttpResponse response;
 		ChannelContext ctx;
+		byte[] buf = new byte[4096];
 		WebSocketListenner wslistenner;
 		WebSocketChannel wschannel;
 		

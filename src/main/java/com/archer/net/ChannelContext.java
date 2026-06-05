@@ -17,8 +17,44 @@ public class ChannelContext {
 		this.channel = channel;
 	}
 	
-	public void write(Bytes output) {
-		onWrite(output);
+	public void write(byte[] output) {
+		channel.write(output);
+	}
+
+	public void write(byte[] output, int off, int length) {
+		channel.write(output, off, length);
+	}
+	
+	public byte[] read(int len) {
+		return channel.read(len);
+	}
+	
+	public int read(byte[] input) {
+		return channel.read(input);
+	}
+	
+	public int read(byte[] input, int off, int length) {
+		return channel.read(input, off, length);
+	}
+	
+	public int readInt32() {
+		return channel.readInt32();
+	}
+	
+	public long readInt64() {
+		return channel.readInt32();
+	}
+	
+	public void writeInt32(int n) {
+		channel.writeInt32(n);
+	}
+	
+	public void writeInt64(long n) {
+		channel.writeInt64(n);
+	}
+	
+	public int readableSize() {
+		return channel.readableSize();
 	}
 	
 	public Channel channel() {
@@ -42,19 +78,27 @@ public class ChannelContext {
 			next.onDisconnect();
 		}
 	}
+
+	/**
+	 * @since 1.5.0 do not call this method since 1.5.0
+	 * */
+	@Deprecated()
+	public void toNextOnRead(byte[] input) {
+	}
 	
-	public void toNextOnRead(Bytes input) {
+	
+	public void toNextOnRead() {
 		if(next != null) {
-			next.onRead(input);
+			next.onRead();
 		}
 	}
 	
-	public void toLastOnWrite(Bytes output) {
+	public void toLastOnWrite(byte[] output) {
 		if(last != null) {
 			last.onWrite(output);
 		} else {
 			if(channel.isActive()) {
-				channel.write(output.readAll());
+				channel.write(output);
 			} else {
 				if(Debugger.enableDebug()) {
 					System.err.println("channel is not active, writting is not supported");
@@ -99,18 +143,22 @@ public class ChannelContext {
 		handler.onDisconnect(this);
 	}
 	
-	protected void onRead(Bytes input) {
-		handler.onRead(this, input);
+	protected void onRead() {
+		handler.onRead(this);
 	}
 
-	protected void onWrite(Bytes output) {
+	protected void onWrite(byte[] output) {
 		handler.onWrite(this, output);
 	}
 	
 	protected void onError(Throwable t) {
 		handler.onError(this, t);
 	}
-	
+
+	/**
+	 * @since 1.5.0 this method will never be called since 1.5.0
+	 * */
+	@Deprecated()
 	protected void onSslCertificate(byte[] cert) {
 		handler.onSslCertificate(this, cert);
 	}

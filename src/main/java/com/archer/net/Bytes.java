@@ -5,7 +5,7 @@ import java.util.Arrays;
 
 public final class Bytes {
 	
-    public static final int BUFFER_SIZE = 8 * 1024;
+    public static final int BUFFER_SIZE = 4 * 1024;
     
 	private byte[] data;
 	
@@ -29,12 +29,26 @@ public final class Bytes {
 		write = data.length;
 	}
 	
+	public Bytes(byte[] data, int off, int len) {
+		this.data = Arrays.copyOfRange(data, off, off + len);
+		read = 0;
+		write = len;
+	}
+	
 	public int readPos() {
 		return read;
+	}
+
+	public void readPos(int pos) {
+		read = pos;
 	}
 	
 	public int writePos() {
 		return write;
+	}
+
+	public void writePos(int pos) {
+		write = pos;
 	}
 	
 	public int available() {

@@ -156,14 +156,14 @@ public class HttpTest {
     {
     	FormData form = new FormData();
     	try {
-			form.put("file", "ReadMe.ico", Files.readAllBytes(Paths.get("E:\\projects\\cppProject\\archer_multiples\\icon.ico")));
+			form.put("file", "ReadMe.ico", Files.readAllBytes(Paths.get("D:\\projects\\cppProject\\archer_multiples\\icon.ico")));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
     	String authKey = "e11!^cvvcs$a1@ad";
     	String uri = "/archer/file-api/file-upload";
-    	String nonce = "1234567890123456";
-    	byte[] sig = SM4Util.encrypt((uri+nonce).getBytes(), authKey.getBytes());
+    	String t = System.currentTimeMillis() + "";
+    	byte[] sig = SM4Util.encrypt((uri+t).getBytes(), authKey.getBytes());
     	//WHCWsxX9qXMtVZDCTEE8NGsCEW4lTJMlPFL5xqwL YKoOka532GwO4/gBcy1Kxua
     	//WHCWsxX9qXMtVZDCTEE8NGsCEW4lTJMlPFL5xqwL+YKoOka532GwO4/gBcy1Kxua
     	try {
@@ -176,7 +176,7 @@ public class HttpTest {
     	try {
 			signature = URLEncoder.encode(Base64.getEncoder().encodeToString(sig), "UTF-8");
 		} catch (UnsupportedEncodingException ignore) {}
-    	String url = "http://127.0.0.1:9617" + uri + "?nonce="+nonce+"&signature="+signature+"&filename=ReadMe.ico";
+    	String url = "http://10.32.122.172:9617" + uri + "?t="+t+"&signature="+signature+"&filename=ReadMe.ico";
     	System.out.println(url);
     	
     	NativeResponse res = NativeRequest.request("POST", url, form, null);
@@ -206,7 +206,7 @@ public class HttpTest {
 //    	String url = "http://127.0.0.1:9617" + uri + "?nonce="+nonce+"&signature="+signature+"&filename=ReadMe.md";
 //    	System.out.println(url);
 		
-//		uploadTest();
+		uploadTest();
 		
 //		NativeRequest.getAsync("http://10.32.122.172:9610/nihao/hhh", (res) -> {
 //			System.out.println("9610 *****");
@@ -216,7 +216,7 @@ public class HttpTest {
 //		}, null);
 //		sslTest();
 		
-		httpServer();
+//		httpServer();
 //		uploadFile();
 //		listTest();
 //		streamUploadFile();

@@ -1,6 +1,5 @@
 package com.archer.net.handler;
 
-import com.archer.net.Bytes;
 import com.archer.net.ChannelContext;
 
 public interface Handler {
@@ -11,11 +10,16 @@ public interface Handler {
 	
 	void onDisconnect(ChannelContext ctx);
 	
-	void onRead(ChannelContext ctx, Bytes input);
+	void onRead(ChannelContext ctx);
 
-	void onWrite(ChannelContext ctx, Bytes output);
+	void onWrite(ChannelContext ctx, byte[] input);
+	
 	
 	void onError(ChannelContext ctx, Throwable t);
 	
+	/**
+	 * @since 1.5.0 this method will never be called since 1.5.0
+	 * */
+	@Deprecated()
 	void onSslCertificate(ChannelContext ctx, byte[] cert);
 }

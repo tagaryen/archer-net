@@ -3,7 +3,6 @@ package com.archer.net.handler;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
-import com.archer.net.Bytes;
 import com.archer.net.ChannelContext;
 
 public class BaseFrameHandler implements Handler {
@@ -24,26 +23,28 @@ public class BaseFrameHandler implements Handler {
 	}
 
 	@Override
-	public void onRead(ChannelContext ctx, Bytes in) {
+	public void onRead(ChannelContext ctx) {
 		BlockedMessage frame = toFrameMessage(ctx);
-		while(in.available() > 0) {
-			Bytes read = frame.read(in);
-			if(read != null) {
-				ctx.toNextOnRead(read);
-			}
+		frame.readLen(ctx);
+		if(ctx.readableSize() >= frame.size) {
+			ctx.toNextOnRead();
 		}
 	}
 	
 	@Override
-	public void onWrite(ChannelContext ctx, Bytes out) {
-		Bytes wrap = new Bytes(out.available() + 16);
-		wrap.writeInt32(out.available());
-		wrap.readFromBytes(out);
-		ctx.toLastOnWrite(wrap);
+	public void onWrite(ChannelContext ctx, byte[] out) {
+		int i = out.length;
+		byte[] newOut = new byte[4 + i];
+		newOut[0] = (byte) (i >> 24);
+		newOut[1] = (byte) (i >> 16);
+		newOut[2] = (byte) (i >> 8);
+		newOut[3] = (byte) i;
+		
+		System.arraycopy(out, 0, newOut, 4, i);
+		ctx.toLastOnWrite(newOut);
 	}
 
 	@Override
-	
 	public void onDisconnect(ChannelContext ctx) {
 		frameCache.remove(ctx);
 		ctx.toNextOnDisconnect();
@@ -53,8 +54,12 @@ public class BaseFrameHandler implements Handler {
 	public void onError(ChannelContext ctx, Throwable t) {
 		ctx.toNextOnError(t);
 	}
-	
+
+	/**
+	 * @since 1.5.0 this method will never be called since 1.5.0
+	 * */
 	@Override
+	@Deprecated
 	public void onSslCertificate(ChannelContext ctx, byte[] cert) {
 		ctx.toNextOnCertificate(cert);
 	}
@@ -72,34 +77,20 @@ public class BaseFrameHandler implements Handler {
 	private class BlockedMessage {
 		
         ReentrantLock frameLock = new ReentrantLock(true);
-        
-		byte[] data;
-		int pos;
+        int size = 0;
 		
 		public BlockedMessage() {}
 		
-		public Bytes read(Bytes in) {
+		public void readLen(ChannelContext ctx) {
 			frameLock.lock();
 			try {
-				int readCount;
-				if(data == null) {
-					int dataLen = in.readInt32();
-					data = new byte[dataLen];
-					pos = 0;
-					readCount = dataLen > in.available() ? in.available() : dataLen;
-				} else {
-					int remain = data.length - pos;
-					readCount = remain > in.available() ? in.available() : remain;
+				if(size == 0) {
+					int len = ctx.readInt32();
+					if(len < 0) {
+						return ;
+					}
+					size = len;
 				}
-				in.read(data, pos, readCount);
-				pos += readCount;
-				if(pos >= data.length) {
-					Bytes read =  new Bytes(data);
-					data = null;
-					pos = 0;
-					return read;
-				}
-				return null;
 			} finally {
 				frameLock.unlock();
 			}

@@ -128,7 +128,7 @@ public class NativeRequest {
 		try {
 			HandlerList handlers = new HandlerList();
 			handler = 
-					new HttpRequestHandler(opt.getTimeout(), new Bytes(getRequestAsBytes(method, url, opt, body))); 
+					new HttpRequestHandler(opt.getTimeout(), getRequestAsBytes(method, url, opt, body)); 
 			handlers.add(handler);
 			ch.handlerList(handlers);
 			ch.connect(url.getHost(), url.getPort());
@@ -166,7 +166,7 @@ public class NativeRequest {
 
 		HandlerList handlers = new HandlerList();
 		HttpAsyncRequestHandler handler = 
-				new HttpAsyncRequestHandler(new Bytes(getRequestAsBytes(method, url, opt, body)), callback, exceptionCallback); 
+				new HttpAsyncRequestHandler(getRequestAsBytes(method, url, opt, body), callback, exceptionCallback); 
 		handlers.add(handler);
 		ch.handlerList(handlers);
 		ch.connect(url.getHost(), url.getPort());
@@ -194,7 +194,7 @@ public class NativeRequest {
 		try {
 			HandlerList handlers = new HandlerList();
 			handler = 
-					new HttpRequestHandler(opt.getTimeout(), new Bytes(getRequestAsBytes(method, url, opt, null))); 
+					new HttpRequestHandler(opt.getTimeout(), getRequestAsBytes(method, url, opt, null)); 
 			handler.form = body;
 			handlers.add(handler);
 			ch.handlerList(handlers);
@@ -241,7 +241,7 @@ public class NativeRequest {
 
 		HandlerList handlers = new HandlerList();
 		HttpAsyncRequestHandler handler = 
-				new HttpAsyncRequestHandler(new Bytes(getRequestAsBytes(method, url, opt, null)), callback, exceptionCallback); 
+				new HttpAsyncRequestHandler(getRequestAsBytes(method, url, opt, null), callback, exceptionCallback); 
 		handler.form = body;
 		handlers.add(handler);
 		ch.handlerList(handlers);
@@ -261,7 +261,7 @@ public class NativeRequest {
 
 		HandlerList handlers = new HandlerList();
 		HttpAsyncRequestHandler handler = 
-				new HttpAsyncRequestHandler(new Bytes(getRequestAsBytes(method, url, opt, body)), onresponse, null);
+				new HttpAsyncRequestHandler(getRequestAsBytes(method, url, opt, body), onresponse, null);
 		handler.onchunk = onchunk;
 		handlers.add(handler);
 		ch.handlerList(handlers);
@@ -288,7 +288,7 @@ public class NativeRequest {
 
 		HandlerList handlers = new HandlerList();
 		HttpAsyncRequestHandler handler = 
-				new HttpAsyncRequestHandler(new Bytes(getRequestAsBytes(method, url, opt, null)), onresponse, null); 
+				new HttpAsyncRequestHandler(getRequestAsBytes(method, url, opt, null), onresponse, null); 
 		handler.form = body;
 		handler.onchunk = onchunk;
 		handlers.add(handler);
@@ -556,25 +556,27 @@ public class NativeRequest {
 	private static class HttpAsyncRequestHandler implements Handler {
 
 		NativeResponse res = new NativeResponse();
-		Bytes requestData;
+		byte[] requestData;
 		FormData form;
+		byte[] buf = new byte[4096];
 		Consumer<NativeResponse> callback;
 		Consumer<Throwable> exceptionCallback;
 		Consumer<Bytes> onchunk = null;
 		
 		
-		HttpAsyncRequestHandler(Bytes requestData, Consumer<NativeResponse> callback, Consumer<Throwable> exceptionCallback) {
+		HttpAsyncRequestHandler(byte[] requestData, Consumer<NativeResponse> callback, Consumer<Throwable> exceptionCallback) {
 			this.requestData = requestData;
 			this.callback = callback;
 			this.exceptionCallback = exceptionCallback;
 		}
 		
 		@Override
-		public void onRead(ChannelContext ctx, Bytes input) {
+		public void onRead(ChannelContext ctx) {
+			int len = ctx.read(buf);
 			if(res.headerParsed()) {
-				res.parseContent(input.array());
+				res.parseContent(buf, len);
 			} else {
-				res.parseHead(input.array());
+				res.parseHead(buf, len);
 				if(this.onchunk != null && this.callback != null) {
 					this.callback.accept(res);
 				}
@@ -602,7 +604,7 @@ public class NativeRequest {
 			}
 		}
 		@Override
-		public void onWrite(ChannelContext ctx, Bytes output) {}
+		public void onWrite(ChannelContext ctx, byte[] output) {}
 		@Override
 		public void onError(ChannelContext ctx, Throwable t) {
 			if(this.exceptionCallback != null) {
@@ -623,9 +625,9 @@ public class NativeRequest {
 						chunk.write((HexUtil.intToHex(out.available()) + "\r\n").getBytes());
 						chunk.readFromBytes(out);
 						chunk.write("\r\n".getBytes());
-						ctx.toLastOnWrite(chunk);
+						ctx.toLastOnWrite(chunk.readAll());
 					}
-					ctx.toLastOnWrite(new Bytes("0\r\n\r\n".getBytes()));
+					ctx.toLastOnWrite("0\r\n\r\n".getBytes());
 				} catch (IOException e) {
 					onError(ctx, e);
 					ctx.close();
@@ -647,13 +649,14 @@ public class NativeRequest {
 
 		NativeResponse res = new NativeResponse();
 		Object lock = new Object();
-		Bytes requestData;
+		byte[] requestData;
+		byte[] buf = new byte[4096];
 		HttpException err;
 		long timeout;
 		long start = System.currentTimeMillis();
 		FormData form = null;
 		
-		HttpRequestHandler(long timeout, Bytes requestData) {
+		HttpRequestHandler(long timeout, byte[] requestData) {
 			this.timeout = timeout;
 			this.requestData = requestData;
 		}
@@ -680,18 +683,19 @@ public class NativeRequest {
 		}
 		
 		@Override
-		public void onRead(ChannelContext ctx, Bytes input) {
+		public void onRead(ChannelContext ctx) {
+			int len = ctx.read(buf);
 			if(res.headerParsed()) {
-				res.parseContent(input.array());
+				res.parseContent(buf, len);
 			} else {
-				res.parseHead(input.array());
+				res.parseHead(buf, len);
 			}
 			if(res.finished()) {
 				notifyLock();
 			}
 		}
 		@Override
-		public void onWrite(ChannelContext ctx, Bytes output) {
+		public void onWrite(ChannelContext ctx, byte[] output) {
 			ctx.toLastOnWrite(output);
 		}
 		@Override
@@ -712,9 +716,9 @@ public class NativeRequest {
 						chunk.write((HexUtil.intToHex(out.available()) + "\r\n").getBytes());
 						chunk.readFromBytes(out);
 						chunk.write("\r\n".getBytes());
-						ctx.toLastOnWrite(chunk);
+						ctx.toLastOnWrite(chunk.readAll());
 					}
-					ctx.toLastOnWrite(new Bytes("0\r\n\r\n".getBytes()));
+					ctx.toLastOnWrite("0\r\n\r\n".getBytes());
 				} catch (IOException e) {
 					onError(ctx, e);
 					ctx.close();

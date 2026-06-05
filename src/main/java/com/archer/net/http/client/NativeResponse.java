@@ -123,17 +123,19 @@ public class NativeResponse {
 		return false;
 	}
 	
-	protected void parseHead(byte[] content) {
+	protected void parseHead(byte[] content, int size) {
 		byte[] res = null;
 		if(!checkHeadersCompletable(content)) {
-			this.buf.write(content);
+			this.buf.write(content, 0, size);
 			return ;
 		} else {
 			if(this.buf.available() > 0) {
-				this.buf.write(content);
-				res = this.buf.readAll();
+				res = new byte[this.buf.available() + size];
+				System.arraycopy(this.buf.array(), this.buf.readPos(), content, 0, this.buf.available());
+				System.arraycopy(content, 0, res, this.buf.available(), size);
+				this.buf.clear();
 			} else {
-				res = content;
+				res = Arrays.copyOfRange(content, 0, size);
 			}
 		}
 		try {
@@ -270,12 +272,17 @@ public class NativeResponse {
 		}
 	}
 	
-	protected void parseContent(byte[] content) {
+	protected void parseContent(byte[] data, int size) {
 		if(isChunked) {
 			int s = 0, len = 0;
+			byte[] content = null;
 			if(remainBody.available() > 0) {
-				remainBody.write(content);
-				content = remainBody.readAll();
+				content = new byte[remainBody.available() + size];
+				System.arraycopy(remainBody.array(), remainBody.readPos(), data, 0, remainBody.available());
+				System.arraycopy(data, 0, data, remainBody.available(), size);
+				remainBody.clear();
+			} else {
+				content = Arrays.copyOfRange(data, 0, size);
 			}
 			for(int i = 0; i < content.length; i++) {
 	    		if(content[i] == LF) {
@@ -315,11 +322,11 @@ public class NativeResponse {
 		} else {
 			if(this.contentLength == 0) {
 				finished = true;
-			} else if(content.length + chunkedBody.available() > this.contentLength) {
+			} else if(data.length + chunkedBody.available() > this.contentLength) {
 				throw new HttpException(HttpStatus.BAD_REQUEST.getCode(),
 						"content bytes over flow.");
 			} else {
-				chunkedBody.write(content);
+				chunkedBody.write(data);
 				if(chunkedBody.available() >= this.contentLength) {
 					finished = true;
 				}

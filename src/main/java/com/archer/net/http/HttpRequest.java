@@ -275,17 +275,17 @@ public class HttpRequest {
 		return false;
 	}
 	
-	protected void parse(byte[] req) throws IOException {
+	protected void parse(byte[] req, int size) throws IOException {
 		byte[] msg = null;
 		if(!checkHeadersCompletable(req)) {
 			this.buf.write(req);
 			return ;
 		} else {
-			this.buf.write(req);
+			this.buf.write(req, 0, size);
 			if(this.buf.available() > 0) {
 				msg = this.buf.readAll();
 			} else {
-				msg = req;
+				msg = Arrays.copyOfRange(req, 0, size);
 			}
 		}
 		
@@ -428,12 +428,17 @@ public class HttpRequest {
 		}
 	}
 	
-	protected void putContent(byte[] content) {
+	protected void putContent(byte[] data, int size) {
 		if(isChunked) {
 			int s = 0, len = 0, state = CHUNKED_LEN;
+			byte[] content = null;
 			if(remainBody.available() > 0) {
-				remainBody.write(content);
-				content = remainBody.readAll();
+				content = new byte[remainBody.available() + size];
+				System.arraycopy(remainBody.array(), remainBody.readPos(), data, 0, remainBody.available());
+				System.arraycopy(data, 0, data, remainBody.available(), size);
+				remainBody.clear();
+			} else {
+				content = Arrays.copyOfRange(data, 0, size);
 			}
 			for(int i = 0; i < content.length; i++) {
 	    		if(state == CHUNKED_LEN && content[i] == ENTER) {
@@ -462,12 +467,12 @@ public class HttpRequest {
 		} else {
 			if(this.contentLength == 0) {
 				finished = true;
-			} else if(content.length + pos > this.content.length) {
+			} else if(data.length + pos > this.content.length) {
 				throw new HttpException(HttpStatus.BAD_REQUEST.getCode(),
 						"content bytes over flow.");
 			} else {
-				System.arraycopy(content, 0, this.content, pos, content.length);
-				pos += content.length;
+				System.arraycopy(data, 0, this.content, pos, content.length);
+				pos += data.length;
 				if(pos == this.contentLength) {
 					finished = true;
 				}

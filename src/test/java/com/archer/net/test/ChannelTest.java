@@ -32,10 +32,10 @@ public class ChannelTest {
 			}
 
 			@Override
-			public MessageA decodeInput(Bytes in) {
-				int len = in.readInt32();
+			public MessageA decodeInput(ChannelContext ctx) {
+				int len = ctx.readInt32();
 				MessageA a = new MessageA();
-				a.name = new String(in.read(len));
+				a.name = new String(ctx.read(len));
 				return a;
 			}}));
 		server.listen("127.0.0.1", 9617);
@@ -51,10 +51,11 @@ public class ChannelTest {
 			@Override
 			public void onConnect(ChannelContext ctx) {
 				Bytes out = new Bytes();
-				byte[] name = "xuyihahaha".getBytes();
+				byte[] name = "xuyi好帅".getBytes();
+				System.out.println("send len = " + name.length);
 				out.writeInt32(name.length);
 				out.write(name);
-				ctx.write(out);
+				ctx.write(out.readAll());
 			}
 
 			@Override
@@ -69,7 +70,7 @@ public class ChannelTest {
 			public void onMessage(ChannelContext ctx, MessageA input) {}
 
 			@Override
-			public MessageA decodeInput(Bytes in) {return null;}
+			public MessageA decodeInput(ChannelContext ctx) {return null;}
 		};
 		
 		Channel ch1 = new Channel();

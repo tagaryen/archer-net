@@ -23,15 +23,16 @@ public abstract class HttpUpgradeHandler extends HttpAbstractHandler {
 	}
 
 	@Override
-	public void onRead(ChannelContext ctx, Bytes in) {
+	public void onRead(ChannelContext ctx) {
 		HttpContext context = (HttpContext) ctx.getChannelAttachment();
 		if(context == null) {
 			handleException(null, null, new NullPointerException("fetch http context error"));
 			return ;
 		}
 		if(context.iswebsocket) {
+			int len = ctx.read(context.buf);
 			try {
-				if(context.wschannel.parseWebSocketMessage(in)) {
+				if(context.wschannel.parseWebSocketMessage(new Bytes(context.buf, 0, len))) {
 					context.wslistenner.onMessage(context.wschannel, context.wschannel.resetAndGet());
 				} else {
 					ctx.close();
@@ -44,18 +45,17 @@ public abstract class HttpUpgradeHandler extends HttpAbstractHandler {
 		}
 		HttpRequest req = context.request;
 		HttpResponse res = context.response;
-		byte[] msg = in.array();
-
+		int len = ctx.read(context.buf);
 		try {
 			if(!req.headerParsed()) {
-				req.parse(msg);
+				req.parse(context.buf, len);
 				res.setVersion(req.getHttpVersion());
 				String connection = req.getHeader("connection");
 				if(null != connection) {
 					res.setHeader("connection", connection);
 				}
 			} else {
-				req.putContent(msg);
+				req.putContent(context.buf, len);
 			}
 		} catch(Exception e) {
 			HttpStatus status;
@@ -137,6 +137,7 @@ public abstract class HttpUpgradeHandler extends HttpAbstractHandler {
 		HttpRequest request;
 		HttpResponse response;
 		ChannelContext ctx;
+		byte[] buf = new byte[4096];
 		boolean iswebsocket;
 		WebSocketListenner wslistenner;
 		WebSocketChannel wschannel;
