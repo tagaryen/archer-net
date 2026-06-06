@@ -1,7 +1,7 @@
 package com.archer.net.http;
 
 
-public class HttpServerException extends Exception {
+public class HttpServerException extends RuntimeException {
 
 	private static final long serialVersionUID = 128378174983472L;
 	

@@ -11,7 +11,6 @@ import com.archer.net.HandlerList;
 import com.archer.net.handler.AbstractWrappedHandler;
 import com.archer.net.ssl.ProtocolVersion;
 import com.archer.net.ssl.SslContext;
-import com.archer.net.test.ChannelTest.MessageA;
 
 public class GMSSLTest {
 	

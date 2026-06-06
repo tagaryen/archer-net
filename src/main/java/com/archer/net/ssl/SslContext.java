@@ -21,7 +21,7 @@ public class SslContext {
 	
 	/***below defines class***/
 	
-	private long sslfd;
+	private long sslfd = 0;
 	
 	private ProtocolVersion maxVersion, minVersion;
 	
@@ -91,7 +91,7 @@ public class SslContext {
 		return this;
 	}
 	
-	public void setSsl(long channelfd) {
+	private void init() {
 		this.sslfd = init(this, clientMode, verifyPeer, maxVersion.version(), minVersion.version());
 		trustCertificate(sslfd, ca);
 		if(crt != null && key != null) {
@@ -106,7 +106,23 @@ public class SslContext {
 		if(hostname != null) {
 			validateHostname(sslfd, hostname.getBytes());
 		}
+	}
+	
+	/**
+	 * do not call this method
+	 * */
+	public void setSsl(long channelfd) {
+		init();
 		setSsl(sslfd, channelfd, clientMode);
+	}
+	
+	public long getSsl() {
+		init();
+		return sslfd;
+	}
+	
+	public void close() {
+		close(sslfd);
 	}
 	
 	public ProtocolVersion maxVersion() {

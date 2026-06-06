@@ -72,69 +72,73 @@ public class WebSocketServer {
 			}
 			HttpRequest req = wsctx.request;
 			HttpResponse res = wsctx.response;
-			int len = ctx.read(wsctx.buf);
-			
-			try {
-				if(wsctx.wschannel != null) {
-					if(wsctx.wschannel.parseWebSocketMessage(new Bytes(wsctx.buf, 0, len))) {
-						wsctx.wslistenner.onMessage(wsctx.wschannel, wsctx.wschannel.resetAndGet());
-					} else {
-						ctx.close();
-						wsctx.wslistenner.onClose(wsctx.wschannel);
-					}
-				} else {
-					try {
-						if(req.isEmpty()) {
-							req.parse(wsctx.buf, len);
-							res.setVersion(req.getHttpVersion());
-							String connection = req.getHeader("connection");
-							if(null != connection) {
-								res.setHeader("connection", connection);
-							}
-						} else {
-							req.putContent(wsctx.buf, len);
-						}
-					} catch(Exception e) {
-						HttpStatus status;
-						if(e instanceof HttpException) {
-							status = HttpStatus.valueOf(((HttpException)e).getCode());
-						} else {
-							status = HttpStatus.BAD_REQUEST;
-						}
-						res.setVersion(req.getHttpVersion());
-						res.setStatus(status);
-						res.sendContent(status.getMsg().getBytes());
-						return ;
-					}
-
-					if(req.isFinished()) {
-						boolean ok = false;
-						for(WebSocketListenner listenner: wslistenners) {
-							if(listenner.websocketUriMatch(req.getUri())) {
-								wsctx.setWs(listenner);
-								ok = true;
-								break;
-							}
-						}
-						if(!ok) {
-							res.setStatus(HttpStatus.NOT_FOUND);
-							res.sendContent("Unknown websocket uri".getBytes());
-							ctx.close();
-							return ;
-						}
-						ok = wsctx.wslistenner.setWsResponse(req, res);
-						res.sendContent(null);
-						if(!ok) {
-							res.setStatus(HttpStatus.NOT_FOUND);
-							res.sendContent("Unknown websocket uri".getBytes());
-							ctx.close();
-							return ;
-						}
-						wsctx.wslistenner.onConnected(wsctx.wschannel);
-					}
+			while(true) {
+				int len = ctx.read(wsctx.buf);
+				if(len == 0) {
+					return ;
 				}
-			} catch(Exception e) {
-				wsctx.wslistenner.onError(wsctx.wschannel, e);
+				try {
+					if(wsctx.wschannel != null) {
+						if(wsctx.wschannel.parseWebSocketMessage(new Bytes(wsctx.buf, 0, len))) {
+							wsctx.wslistenner.onMessage(wsctx.wschannel, wsctx.wschannel.resetAndGet());
+						} else {
+							ctx.close();
+							wsctx.wslistenner.onClose(wsctx.wschannel);
+						}
+					} else {
+						try {
+							if(req.isEmpty()) {
+								req.parse(wsctx.buf, len);
+								res.setVersion(req.getHttpVersion());
+								String connection = req.getHeader("connection");
+								if(null != connection) {
+									res.setHeader("connection", connection);
+								}
+							} else {
+								req.putContent(wsctx.buf, len);
+							}
+						} catch(Exception e) {
+							HttpStatus status;
+							if(e instanceof HttpException) {
+								status = HttpStatus.valueOf(((HttpException)e).getCode());
+							} else {
+								status = HttpStatus.BAD_REQUEST;
+							}
+							res.setVersion(req.getHttpVersion());
+							res.setStatus(status);
+							res.sendContent(status.getMsg().getBytes());
+							return ;
+						}
+
+						if(req.isFinished()) {
+							boolean ok = false;
+							for(WebSocketListenner listenner: wslistenners) {
+								if(listenner.websocketUriMatch(req.getUri())) {
+									wsctx.setWs(listenner);
+									ok = true;
+									break;
+								}
+							}
+							if(!ok) {
+								res.setStatus(HttpStatus.NOT_FOUND);
+								res.sendContent("Unknown websocket uri".getBytes());
+								ctx.close();
+								return ;
+							}
+							ok = wsctx.wslistenner.setWsResponse(req, res);
+							res.sendContent(null);
+							if(!ok) {
+								res.setStatus(HttpStatus.NOT_FOUND);
+								res.sendContent("Unknown websocket uri".getBytes());
+								ctx.close();
+								return ;
+							}
+							wsctx.wslistenner.onConnected(wsctx.wschannel);
+						}
+					}
+				} catch(Exception e) {
+					wsctx.wslistenner.onError(wsctx.wschannel, e);
+				}
 			}
 		}
 		

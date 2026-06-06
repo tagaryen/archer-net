@@ -10,7 +10,7 @@ import java.util.Arrays;
 
 import com.archer.net.util.Sha256Util;
 
-final class Library {
+public final class Library {
 
 	private static final String WIN_LIB = "lib/libarnet.dll";
 	private static final String LINUX_X86_64_LIB = "lib/libarnet-x86-64.so";

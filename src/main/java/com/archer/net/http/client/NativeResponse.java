@@ -131,7 +131,7 @@ public class NativeResponse {
 		} else {
 			if(this.buf.available() > 0) {
 				res = new byte[this.buf.available() + size];
-				System.arraycopy(this.buf.array(), this.buf.readPos(), content, 0, this.buf.available());
+				System.arraycopy(this.buf.array(), this.buf.readPos(), res, 0, this.buf.available());
 				System.arraycopy(content, 0, res, this.buf.available(), size);
 				this.buf.clear();
 			} else {
@@ -278,8 +278,8 @@ public class NativeResponse {
 			byte[] content = null;
 			if(remainBody.available() > 0) {
 				content = new byte[remainBody.available() + size];
-				System.arraycopy(remainBody.array(), remainBody.readPos(), data, 0, remainBody.available());
-				System.arraycopy(data, 0, data, remainBody.available(), size);
+				System.arraycopy(remainBody.array(), remainBody.readPos(), content, 0, remainBody.available());
+				System.arraycopy(data, 0, content, remainBody.available(), size);
 				remainBody.clear();
 			} else {
 				content = Arrays.copyOfRange(data, 0, size);
@@ -322,11 +322,11 @@ public class NativeResponse {
 		} else {
 			if(this.contentLength == 0) {
 				finished = true;
-			} else if(data.length + chunkedBody.available() > this.contentLength) {
+			} else if(size + chunkedBody.available() > this.contentLength) {
 				throw new HttpException(HttpStatus.BAD_REQUEST.getCode(),
 						"content bytes over flow.");
 			} else {
-				chunkedBody.write(data);
+				chunkedBody.write(data, 0, size);
 				if(chunkedBody.available() >= this.contentLength) {
 					finished = true;
 				}

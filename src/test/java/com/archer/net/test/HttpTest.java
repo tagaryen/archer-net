@@ -70,7 +70,7 @@ public class HttpTest {
 			}
 
 			@Override
-			public void handleException(HttpRequest req, HttpResponse res, Throwable t) {
+			public void handleException(Throwable t) {
 				t.printStackTrace();
 			}
 		};
@@ -206,14 +206,19 @@ public class HttpTest {
 //    	String url = "http://127.0.0.1:9617" + uri + "?nonce="+nonce+"&signature="+signature+"&filename=ReadMe.md";
 //    	System.out.println(url);
 		
-		uploadTest();
+//		uploadTest();
 		
-//		NativeRequest.getAsync("http://10.32.122.172:9610/nihao/hhh", (res) -> {
-//			System.out.println("9610 *****");
+//		NativeRequest.getAsync("https://www.aliyun.com", (res) -> {
+//			try {
+//				Files.write(Paths.get("E:/ali.html"), res.getBody());
+//			} catch (IOException e) {
+//				// TODO Auto-generated catch block
+//				e.printStackTrace();
+//			}
 //		}, null);
-//		NativeRequest.getAsync("https://www.zhihu.com", (res) -> {
-//			System.out.println(new String(res.getBody()));
-//		}, null);
+		NativeRequest.getAsync("https://www.zhihu.com", (res) -> {
+			System.out.println(new String(res.getBody()));
+		}, null);
 //		sslTest();
 		
 //		httpServer();

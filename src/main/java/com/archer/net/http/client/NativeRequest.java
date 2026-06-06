@@ -572,34 +572,40 @@ public class NativeRequest {
 		
 		@Override
 		public void onRead(ChannelContext ctx) {
-			int len = ctx.read(buf);
-			if(res.headerParsed()) {
-				res.parseContent(buf, len);
-			} else {
-				res.parseHead(buf, len);
-				if(this.onchunk != null && this.callback != null) {
-					this.callback.accept(res);
+			while(true) {
+				int len = ctx.read(buf);
+				if(len == 0) {
+					return;
 				}
-			}
-			if(this.onchunk != null && res.getBody() != null && res.getBody().length > 0) {
-				this.onchunk.accept(new Bytes(res.getBody()));
-				res.clearBody();
-				if(res.finished()) {
-					ctx.close();
-				}
-			} else if(res.finished()) {
-				ctx.close();
-				
-				if(this.callback != null) {
-					try {
+				if(res.headerParsed()) {
+					res.parseContent(buf, len);
+				} else {
+					res.parseHead(buf, len);
+					if(this.onchunk != null && this.callback != null) {
 						this.callback.accept(res);
-					} catch(Exception e) {
-						if(this.exceptionCallback != null) {
-							this.exceptionCallback.accept(e);
-						} else {
-							e.printStackTrace();
+					}
+				}
+				if(this.onchunk != null && res.getBody() != null && res.getBody().length > 0) {
+					this.onchunk.accept(new Bytes(res.getBody()));
+					res.clearBody();
+					if(res.finished()) {
+						ctx.close();
+						return;
+					}
+				} else if(res.finished()) {
+					ctx.close();
+					if(this.callback != null) {
+						try {
+							this.callback.accept(res);
+						} catch(Exception e) {
+							if(this.exceptionCallback != null) {
+								this.exceptionCallback.accept(e);
+							} else {
+								e.printStackTrace();
+							}
 						}
 					}
+					return;
 				}
 			}
 		}
@@ -684,14 +690,20 @@ public class NativeRequest {
 		
 		@Override
 		public void onRead(ChannelContext ctx) {
-			int len = ctx.read(buf);
-			if(res.headerParsed()) {
-				res.parseContent(buf, len);
-			} else {
-				res.parseHead(buf, len);
-			}
-			if(res.finished()) {
-				notifyLock();
+			while(true) {
+				int len = ctx.read(buf);
+				if(len == 0) {
+					return;
+				}
+				if(res.headerParsed()) {
+					res.parseContent(buf, len);
+				} else {
+					res.parseHead(buf, len);
+				}
+				if(res.finished()) {
+					notifyLock();
+					return;
+				}
 			}
 		}
 		@Override

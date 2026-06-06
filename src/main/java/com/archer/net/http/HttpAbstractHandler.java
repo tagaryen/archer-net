@@ -25,52 +25,54 @@ public abstract class HttpAbstractHandler implements Handler {
 	public void onRead(ChannelContext ctx) {
 		HttpContext context = (HttpContext) ctx.channel().getAttachment();
 		if(context == null) {
-			handleException(null, null, new NullPointerException("fetch http context error"));
+			ctx.close();
 			return ;
 		}
 		HttpRequest req = context.request;
 		HttpResponse res = context.response;
-		int len = ctx.read(context.buf);
-		try {
-			if(!req.headerParsed()) {
-				req.parse(context.buf, len);
-				res.setVersion(req.getHttpVersion());
-				String connection = req.getHeader("connection");
-				if(null != connection) {
-					res.setHeader("connection", connection);
-				}
-			} else {
-				req.putContent(context.buf, len);
-			}
-		} catch(Exception e) {
-			HttpStatus status;
-			if(e instanceof HttpException) {
-				status = HttpStatus.valueOf(((HttpException)e).getCode());
-			} else {
-				status = HttpStatus.BAD_REQUEST;
-			}
-			res.setVersion(req.getHttpVersion());
-			res.setStatus(status);
-			res.sendContent(status.getMsg().getBytes());
-			return ;
-		}
-		if(req.isFinished()) {
-			if(Debugger.enableDebug()) {
-				System.out.println("http request finished, content-length is " + req.getContentLength());
+		while(true) {
+			int len = ctx.read(context.buf);
+			if(len == 0) {
+				return ;
 			}
 			try {
-				handle(req, res);
+				if(!req.headerParsed()) {
+					req.parse(context.buf, len);
+					res.setVersion(req.getHttpVersion());
+					String connection = req.getHeader("connection");
+					if(null != connection) {
+						res.setHeader("connection", connection);
+					}
+				} else {
+					req.putContent(context.buf, len);
+				}
 			} catch(Exception e) {
-				handleException(req, res, e);
+				HttpStatus status;
+				if(e instanceof HttpException) {
+					status = HttpStatus.valueOf(((HttpException)e).getCode());
+				} else {
+					status = HttpStatus.BAD_REQUEST;
+				}
+				res.setVersion(req.getHttpVersion());
+				res.setStatus(status);
+				res.sendContent(status.getMsg().getBytes());
+				return ;
 			}
-			if(Debugger.enableDebug()) {
-				System.out.println("http response, content-length is" + res.getContentLength());
+			if(req.isFinished()) {
+				if(Debugger.enableDebug()) {
+					System.out.println("http request finished, content-length is " + req.getContentLength());
+				}
+				try {
+					handle(req, res);
+				} catch(Throwable e) {
+					handleException(e);
+				}
+				if(Debugger.enableDebug()) {
+					System.out.println("http response, content-length is" + res.getContentLength());
+				}
+				ctx.close();
+				return ;
 			}
-			ctx.close();
-//			if(HttpRequest.HTTP_10.equals(req.getHttpVersion())) {
-//				ctx.close();
-//			}
-//			reset(req, res);
 		}
 	}
 	
@@ -91,16 +93,11 @@ public abstract class HttpAbstractHandler implements Handler {
 
 	@Override
 	public void onError(ChannelContext ctx, Throwable t) {
-		HttpContext context = (HttpContext) ctx.channel().getAttachment();
-		if(context == null) {
-			handleException(null, null, new NullPointerException("fetch http context error"));
-			return ;
-		}
-		HttpRequest req = context.request;
-		HttpResponse res = context.response;
 		try {
-			handleException(req, res, t);
-		} catch(Exception ignore) {}
+			handleException(t);
+		} catch(Throwable tx) {
+			tx.printStackTrace();
+		}
 	}
 
 	/**
@@ -114,7 +111,7 @@ public abstract class HttpAbstractHandler implements Handler {
 	
 	public abstract void handle(HttpRequest req, HttpResponse res);
 	
-	public abstract void handleException(HttpRequest req, HttpResponse res, Throwable t);
+	public abstract void handleException(Throwable t);
 	
 	
 	private static class HttpContext {

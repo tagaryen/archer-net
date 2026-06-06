@@ -26,71 +26,73 @@ public abstract class HttpUpgradeHandler extends HttpAbstractHandler {
 	public void onRead(ChannelContext ctx) {
 		HttpContext context = (HttpContext) ctx.getChannelAttachment();
 		if(context == null) {
-			handleException(null, null, new NullPointerException("fetch http context error"));
-			return ;
-		}
-		if(context.iswebsocket) {
-			int len = ctx.read(context.buf);
-			try {
-				if(context.wschannel.parseWebSocketMessage(new Bytes(context.buf, 0, len))) {
-					context.wslistenner.onMessage(context.wschannel, context.wschannel.resetAndGet());
-				} else {
-					ctx.close();
-					context.wslistenner.onClose(context.wschannel);
-				}
-			} catch (Exception e) {
-				context.wslistenner.onError(context.wschannel, e);
-			}
+			ctx.close();
 			return ;
 		}
 		HttpRequest req = context.request;
 		HttpResponse res = context.response;
-		int len = ctx.read(context.buf);
-		try {
-			if(!req.headerParsed()) {
-				req.parse(context.buf, len);
-				res.setVersion(req.getHttpVersion());
-				String connection = req.getHeader("connection");
-				if(null != connection) {
-					res.setHeader("connection", connection);
-				}
-			} else {
-				req.putContent(context.buf, len);
-			}
-		} catch(Exception e) {
-			HttpStatus status;
-			if(e instanceof HttpException) {
-				status = HttpStatus.valueOf(((HttpException)e).getCode());
-			} else {
-				status = HttpStatus.BAD_REQUEST;
-			}
-			res.setVersion(req.getHttpVersion());
-			res.setStatus(status);
-			res.sendContent(status.getMsg().getBytes());
-			return ;
-		}
-		if(req.isFinished()) {
-			if(!context.iswebsocket) {
-				checkWebSocket(context);
+
+		while(true) {
+			int len = ctx.read(context.buf);
+			if(len == 0) {
+				return ;
 			}
 			if(context.iswebsocket) {
-				boolean ok = context.wslistenner.setWsResponse(req, res);
-				res.sendContent(null);
-				if(!ok) {
-					ctx.channel().close();
+				try {
+					if(context.wschannel.parseWebSocketMessage(new Bytes(context.buf, 0, len))) {
+						context.wslistenner.onMessage(context.wschannel, context.wschannel.resetAndGet());
+					} else {
+						ctx.close();
+						context.wslistenner.onClose(context.wschannel);
+					}
+				} catch (Exception e) {
+					context.wslistenner.onError(context.wschannel, e);
+				}
+			}
+			try {
+				if(!req.headerParsed()) {
+					req.parse(context.buf, len);
+					res.setVersion(req.getHttpVersion());
+					String connection = req.getHeader("connection");
+					if(null != connection) {
+						res.setHeader("connection", connection);
+					}
+				} else {
+					req.putContent(context.buf, len);
+				}
+			} catch(Exception e) {
+				HttpStatus status;
+				if(e instanceof HttpException) {
+					status = HttpStatus.valueOf(((HttpException)e).getCode());
+				} else {
+					status = HttpStatus.BAD_REQUEST;
+				}
+				res.setVersion(req.getHttpVersion());
+				res.setStatus(status);
+				res.sendContent(status.getMsg().getBytes());
+				return ;
+			}
+			if(req.isFinished()) {
+				if(!context.iswebsocket) {
+					checkWebSocket(context);
+				}
+				if(context.iswebsocket) {
+					boolean ok = context.wslistenner.setWsResponse(req, res);
+					res.sendContent(null);
+					if(!ok) {
+						ctx.channel().close();
+						return ;
+					}
+					context.wslistenner.onConnected(context.wschannel);
+				} else {
+					try {
+						handle(req, res);
+					} catch(Throwable e) {
+						handleException(e);
+					}
+					ctx.close();
 					return ;
 				}
-				context.wslistenner.onConnected(context.wschannel);
-			} else {
-				try {
-					handle(req, res);
-				} catch(Exception e) {
-					handleException(req, res, e);
-				}
-				if(HttpRequest.HTTP_10.equals(req.getHttpVersion())) {
-					ctx.close();
-				}
-				reset(req, res);
 			}
 		}
 	}
@@ -108,18 +110,10 @@ public abstract class HttpUpgradeHandler extends HttpAbstractHandler {
 
 	@Override
 	public void onError(ChannelContext ctx, Throwable t) {
-		HttpContext context = (HttpContext) ctx.channel().getAttachment();
-		if(context == null) {
-			return ;
-		}
-		if(context.iswebsocket) {
-			context.wslistenner.onClose(context.wschannel);
-		} else {
-			HttpRequest req = context.request;
-			HttpResponse res = context.response;
-			try {
-				handleException(req, res, t);
-			} catch(Exception ignore) {}
+		try {
+			handleException(t);
+		} catch(Exception tx) {
+			tx.printStackTrace();
 		}
 	}
 	
