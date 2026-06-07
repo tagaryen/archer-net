@@ -74,10 +74,8 @@ public class HttpRequest {
 			return queries;
 		}
 		int size = getQuerySize(fd);
-		System.out.println("query size = " + size);
 		for(int i = 0; i < size; i++) {
 			byte[] linebs = getQueryLine(fd, i);
-			System.out.println("line = " + new String(linebs));
 			setQuery(linebs);
 		}
 		queriesParsed = true;

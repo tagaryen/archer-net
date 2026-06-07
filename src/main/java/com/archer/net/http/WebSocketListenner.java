@@ -63,7 +63,7 @@ public abstract class WebSocketListenner {
 	}
 	
 	protected boolean websocketUriMatch(String uri) {
-		String pattern = uri;
+		String pattern = this.uri;
 	    int uri_len = uri.length(), pattern_len = pattern.length(); 
 	    if(pattern.indexOf('*') < 0) {
 	        return pattern.equals(uri);

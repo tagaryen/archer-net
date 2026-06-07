@@ -278,6 +278,18 @@ public class Channel {
 		return readCnt;
 	}
 	
+	public void writeInt8(byte n) {
+		writeBuf.clear();
+		writeBuf.put(n);
+		write(channelfd, writeBuf, 1);
+	}
+	
+	public void writeInt16(short n) {
+		writeBuf.clear();
+		writeBuf.putShort(n);
+		write(channelfd, writeBuf, 2);
+	}
+	
 	public void writeInt32(int n) {
 		writeBuf.clear();
 		writeBuf.putInt(n);
@@ -288,6 +300,21 @@ public class Channel {
 		writeBuf.clear();
 		writeBuf.putLong(n);
 		write(channelfd, writeBuf, 8);
+	}
+	
+	public byte readInt8() {
+    	readBuf.clear();
+		read(channelfd, readBuf, 1);
+    	return readBuf.get();
+	}
+	
+	public short readInt16() {
+		if(readableSize(channelfd) < 2) {
+			return -1;
+		}
+    	readBuf.clear();
+		read(channelfd, readBuf, 2);
+    	return readBuf.getShort();
 	}
 	
 	public int readInt32() {

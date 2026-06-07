@@ -288,7 +288,6 @@ public class HttpRequest {
 				msg = Arrays.copyOfRange(req, 0, size);
 			}
 		}
-		
 		int i = 0, p = 0;
 		while(msg[i] != SPACE && i < HttpRequest.METHOD_LEN) {
 			i++;

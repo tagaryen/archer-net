@@ -61,6 +61,7 @@ public abstract class HttpUpgradeHandler extends HttpAbstractHandler {
 					req.putContent(context.buf, len);
 				}
 			} catch(Exception e) {
+				e.printStackTrace();
 				HttpStatus status;
 				if(e instanceof HttpException) {
 					status = HttpStatus.valueOf(((HttpException)e).getCode());
@@ -90,8 +91,9 @@ public abstract class HttpUpgradeHandler extends HttpAbstractHandler {
 					} catch(Throwable e) {
 						handleException(e);
 					}
-					ctx.close();
-					return ;
+					req.clear();
+					res.clear();
+//					ctx.close();
 				}
 			}
 		}

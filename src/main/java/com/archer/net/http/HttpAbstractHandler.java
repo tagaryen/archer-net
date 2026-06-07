@@ -2,7 +2,6 @@ package com.archer.net.http;
 
 import com.archer.net.Channel;
 import com.archer.net.ChannelContext;
-import com.archer.net.Debugger;
 import com.archer.net.handler.Handler;
 
 
@@ -59,19 +58,14 @@ public abstract class HttpAbstractHandler implements Handler {
 				return ;
 			}
 			if(req.isFinished()) {
-				if(Debugger.enableDebug()) {
-					System.out.println("http request finished, content-length is " + req.getContentLength());
-				}
 				try {
 					handle(req, res);
 				} catch(Throwable e) {
 					handleException(e);
 				}
-				if(Debugger.enableDebug()) {
-					System.out.println("http response, content-length is" + res.getContentLength());
-				}
-				ctx.close();
-				return ;
+				req.clear();
+				res.clear();
+//				ctx.close();
 			}
 		}
 	}

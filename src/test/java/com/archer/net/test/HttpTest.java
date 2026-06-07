@@ -63,10 +63,11 @@ public class HttpTest {
 
 			@Override
 			public void handle(HttpRequest req, HttpResponse res) {
-				System.out.println(new String(req.getContent()));
-				HttpStreamWriter writer = res.streamWriter();
-				writer.write("nihaowa".getBytes(StandardCharsets.UTF_8));
-				writer.end();
+				System.out.println("body = "+new String(req.getContent(), StandardCharsets.UTF_8));
+//				HttpStreamWriter writer = res.streamWriter();
+//				writer.write("nihaowa".getBytes(StandardCharsets.UTF_8));
+//				writer.end();
+				res.sendContent("{\"nihao\":\"aaaa\"}".getBytes());
 			}
 
 			@Override
@@ -91,7 +92,7 @@ public class HttpTest {
 			}
 		});
 		try {
-			server.listen("127.0.0.1", 9666, handler);
+			server.listen("127.0.0.1", 9617, handler);
 		} catch (HttpServerException e) {
 			e.printStackTrace();
 		}
@@ -216,12 +217,12 @@ public class HttpTest {
 //				e.printStackTrace();
 //			}
 //		}, null);
-		NativeRequest.getAsync("https://www.zhihu.com", (res) -> {
-			System.out.println(new String(res.getBody()));
-		}, null);
+//		NativeRequest.getAsync("https://www.zhihu.com", (res) -> {
+//			System.out.println(new String(res.getBody()));
+//		}, null);
 //		sslTest();
 		
-//		httpServer();
+		httpServer();
 //		uploadFile();
 //		listTest();
 //		streamUploadFile();
