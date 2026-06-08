@@ -49,7 +49,9 @@ public class HttpServer {
 		this.future = new HttpServerFuture(host+port) {
 			public void apply() {
 				listen(fd, host.getBytes(), port, threadNum);
-				sslctx.close();
+				if(sslctx != null) {
+					sslctx.close();
+				}
 				running = false;
 			}
 		};
