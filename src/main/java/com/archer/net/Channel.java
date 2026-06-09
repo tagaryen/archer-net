@@ -128,7 +128,9 @@ public class Channel {
 	
 	private ChannelContext ctx = null;
 	private ByteBuffer readBuf = ByteBuffer.allocateDirect(BUF_SIZE);
+	private Object readlock = new Object();
 	private ByteBuffer writeBuf = ByteBuffer.allocateDirect(BUF_SIZE);
+	private Object writelock = new Object();
 	
 	public Channel() {
 		this(null);
@@ -224,16 +226,18 @@ public class Channel {
 			len = output.length - off;
 		}
 		int writeCnt = 0;
-		while((writeCnt + BUF_SIZE) < len) {
+		synchronized(writelock) {
+			while((writeCnt + BUF_SIZE) < len) {
+				writeBuf.clear();
+				writeBuf.put(output, off, BUF_SIZE);
+				write(channelfd, writeBuf, BUF_SIZE);
+				off += BUF_SIZE;
+				writeCnt += BUF_SIZE;
+			}
 			writeBuf.clear();
-			writeBuf.put(output, off, BUF_SIZE);
-			write(channelfd, writeBuf, BUF_SIZE);
-			off += BUF_SIZE;
-			writeCnt += BUF_SIZE;
+			writeBuf.put(output, off, (len - writeCnt));
+			write(channelfd, writeBuf, len - writeCnt);
 		}
-		writeBuf.clear();
-		writeBuf.put(output, off, (len - writeCnt));
-		write(channelfd, writeBuf, len - writeCnt);
 	}
 
 	public byte[] read(int len) {
@@ -258,81 +262,99 @@ public class Channel {
 		}
 		boolean readEnd = false;
 		int readCnt = 0, reads = 0;
-		while((readCnt + BUF_SIZE) < len) {
-			readBuf.clear();
-			reads = read(channelfd, readBuf, BUF_SIZE);
-			if(reads == 0) {
-				readEnd = true;
-				break;
+		synchronized(readlock) {
+			while((readCnt + BUF_SIZE) < len) {
+				readBuf.clear();
+				reads = read(channelfd, readBuf, BUF_SIZE);
+				if(reads == 0) {
+					readEnd = true;
+					break;
+				}
+				readBuf.get(input, off, reads);
+				
+				readCnt += reads;
 			}
-			readBuf.get(input, off, reads);
-			
-			readCnt += reads;
-		}
-		if(!readEnd) {
-			readBuf.clear();
-			reads = read(channelfd, readBuf, len - readCnt);
-			readBuf.get(input, off, reads);
-			readCnt += reads;
+			if(!readEnd) {
+				readBuf.clear();
+				reads = read(channelfd, readBuf, len - readCnt);
+				readBuf.get(input, off, reads);
+				readCnt += reads;
+			}
 		}
 		return readCnt;
 	}
 	
 	public void writeInt8(byte n) {
-		writeBuf.clear();
-		writeBuf.put(n);
-		write(channelfd, writeBuf, 1);
+		synchronized(writelock) {
+			writeBuf.clear();
+			writeBuf.put(n);
+			write(channelfd, writeBuf, 1);
+		}
 	}
 	
 	public void writeInt16(short n) {
-		writeBuf.clear();
-		writeBuf.putShort(n);
-		write(channelfd, writeBuf, 2);
+		synchronized(writelock) {
+			writeBuf.clear();
+			writeBuf.putShort(n);
+			write(channelfd, writeBuf, 2);
+		}
 	}
 	
 	public void writeInt32(int n) {
-		writeBuf.clear();
-		writeBuf.putInt(n);
-		write(channelfd, writeBuf, 4);
+		synchronized(writelock) {
+			writeBuf.clear();
+			writeBuf.putInt(n);
+			write(channelfd, writeBuf, 4);
+		}
 	}
 	
 	public void writeInt64(long n) {
-		writeBuf.clear();
-		writeBuf.putLong(n);
-		write(channelfd, writeBuf, 8);
+		synchronized(writelock) {
+			writeBuf.clear();
+			writeBuf.putLong(n);
+			write(channelfd, writeBuf, 8);
+		}
 	}
 	
 	public byte readInt8() {
-    	readBuf.clear();
-		read(channelfd, readBuf, 1);
-    	return readBuf.get();
+		synchronized(readlock) {
+	    	readBuf.clear();
+			read(channelfd, readBuf, 1);
+	    	return readBuf.get();
+		}
 	}
 	
 	public short readInt16() {
 		if(readableSize(channelfd) < 2) {
 			return -1;
 		}
-    	readBuf.clear();
-		read(channelfd, readBuf, 2);
-    	return readBuf.getShort();
+		synchronized(readlock) {
+	    	readBuf.clear();
+			read(channelfd, readBuf, 2);
+	    	return readBuf.getShort();
+		}
 	}
 	
 	public int readInt32() {
 		if(readableSize(channelfd) < 4) {
 			return -1;
 		}
-    	readBuf.clear();
-		read(channelfd, readBuf, 4);
-    	return readBuf.getInt();
+		synchronized(readlock) {
+	    	readBuf.clear();
+			read(channelfd, readBuf, 4);
+	    	return readBuf.getInt();
+		}
 	}
 	
 	public long readInt64() {
 		if(readableSize(channelfd) < 8) {
 			return -1;
 		}
-    	readBuf.clear();
-		read(channelfd, readBuf, 8);
-		return readBuf.getLong();
+		synchronized(readlock) {
+	    	readBuf.clear();
+			read(channelfd, readBuf, 8);
+			return readBuf.getLong();
+		}
 	}
 	
 	public int readableSize() {

@@ -37,12 +37,28 @@ public class ChannelContext {
 		return channel.read(input, off, length);
 	}
 	
+	public byte readInt8() {
+		return channel.readInt8();
+	}
+	
+	public short readInt16() {
+		return channel.readInt16();
+	}
+	
 	public int readInt32() {
 		return channel.readInt32();
 	}
 	
 	public long readInt64() {
 		return channel.readInt32();
+	}
+	
+	public void writeInt8(byte n) {
+		channel.writeInt8(n);
+	}
+	
+	public void writeInt16(short n) {
+		channel.writeInt16(n);
 	}
 	
 	public void writeInt32(int n) {
