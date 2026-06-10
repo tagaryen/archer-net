@@ -149,7 +149,7 @@ memory cost: 255MB (200000 requests)
 
 
 
-### netty 4.1.108.Final
+### netty 4.1.108.Final JDK21  
 ``` java
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.Unpooled;
@@ -228,7 +228,7 @@ public class HttpServer {
     }
 }
 ```
-****** jdk8  compare to jdk21    
+here is the result of  jdk8  
 | Item | Value |
 | --- | --- |
 | Concurrency Level | 10000 |
@@ -237,7 +237,6 @@ public class HttpServer {
 | Failed requests | 0 |
 | Requests per second | 5756.59 [#/sec] (mean) |
 | Time per request | 1737.139 [ms] (mean) | 
-***** jdk8  
 
 #### 1: memory  
 memory cost: 671MB (200000 requests) 
