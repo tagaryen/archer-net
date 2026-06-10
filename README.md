@@ -275,90 +275,68 @@ memory cost: 671MB (200000 requests)
 
     //event loop
     HandlerList handlerlist = new HandlerList();
-    handlerlist.add(
-        new FrameReadHandler(0, 2, 2),
-        new AbstractWrappedHandler<Msg>() {
-        @Override
-        public void onMessage(ChannelContext ctx, Msg input) {
-            System.out.println("Handler: receive: " + input.data);
-        }
-        @Override
-        public Msg decode(Bytes in) {
-            Msg msg = new Msg();
-            msg.decode(in);
-            return msg;
-        }
-            
+    handlerlist.add(new AbstractWrappedHandler<String>() {
         @Override
         public void onConnect(ChannelContext ctx) {
-            Channel channel = ctx.channel();
-            String host = channel.remoteHost();
-            int port = channel.remotePort();
-            System.out.println("Handler: " + host+":"+port+" connected.");
-            ctx.write(new Msg());
+            if(ctx.channel().isClientSide()) {
+            //send 32bytes
+                onWrite(ctx, "akjsncajsncpancsponspconapcsacsa".getBytes());
+            }
         }
         @Override
-        public void onDisconnect(ChannelContext ctx) {
-            Channel channel = ctx.channel();
-            String host = channel.remoteHost();
-            int port = channel.remotePort();
-            System.out.println("Handler: " + host+":"+port+" disconnected.");
+        public void onDisconnect(ChannelContext ctx) {}
+        @Override
+        public void onError(ChannelContext ctx, Throwable t) {}
+        @Override
+        public void onMessage(ChannelContext ctx, String input) {
+            System.out.println(input);
         }
         @Override
-        public void onError(ChannelContext ctx, Throwable t) {
-            t.printStackTrace();
-        }
-        @Override
-        public void onAccept(ChannelContext ctx) {
-            Channel channel = ctx.channel();
-            String host = channel.remoteHost();
-            int port = channel.remotePort();
-            System.out.println(host+":"+port+" accepted.");
+        public String decodeInput(ChannelContext ctx) {
+            return new String(ctx.read(32));
         }
     });
-    try {
-        //ca crt
-        byte[] caBytes= Files.readAllBytes(Paths.get(ca));
 
-        //server crt
-        byte[] crtBytes= Files.readAllBytes(Paths.get(crt));
-        byte[] keyBytes= Files.readAllBytes(Paths.get(key));
-        byte[] enCrtBytes= Files.readAllBytes(Paths.get(encrt));
-        byte[] enKeyBytes= Files.readAllBytes(Paths.get(enkey));
-        //client crt
-        byte[] clicrtBytes= Files.readAllBytes(Paths.get(clicrt));
-        byte[] clikeyBytes= Files.readAllBytes(Paths.get(clikey));
-        byte[] enClicrtBytes= Files.readAllBytes(Paths.get(enclicrt));
-        byte[] enClikeyBytes= Files.readAllBytes(Paths.get(enclikey));
+    //ca crt
+    byte[] caBytes= Files.readAllBytes(Paths.get(ca));
 
-        //start a gmssl server
-        System.out.println("start server.");
-        SslContext opt = new SslContext(false, true).trustCertificateAuth(caBytes).useCertificate(crtBytes, keyBytes).useEncryptCertificate(enClicrtBytes, enClikeyBytes);
-        ServerChannel server = new ServerChannel(opt);
-        server.handlerList(handlerlist);
-        server.listen("127.0.0.1", 8081);
+    //server crt
+    byte[] crtBytes= Files.readAllBytes(Paths.get(crt));
+    byte[] keyBytes= Files.readAllBytes(Paths.get(key));
+    byte[] enCrtBytes= Files.readAllBytes(Paths.get(encrt));
+    byte[] enKeyBytes= Files.readAllBytes(Paths.get(enkey));
+    //client crt
+    byte[] clicrtBytes= Files.readAllBytes(Paths.get(clicrt));
+    byte[] clikeyBytes= Files.readAllBytes(Paths.get(clikey));
+    byte[] enClicrtBytes= Files.readAllBytes(Paths.get(enclicrt));
+    byte[] enClikeyBytes= Files.readAllBytes(Paths.get(enclikey));
 
-        // wait
-        Thread.sleep(1000);
+    //start a gmssl server
+    System.out.println("start server.");
+    SslContext opt = new SslContext(false, true).trustCertificateAuth(caBytes).useCertificate(crtBytes, keyBytes).useEncryptCertificate(enClicrtBytes, enClikeyBytes);
+    ServerChannel server = new ServerChannel(opt);
+    server.handlerList(handlerlist);
+    server.listen("127.0.0.1", 8081);
 
-        //start a gmssl client
-        SslContext cliopt = new SslContext(true, false).trustCertificateAuth(caBytes).useCertificate(clicrtBytes, clikeyBytes).useEncryptCertificate(enClicrtBytes, enClikeyBytes);
-        Channel cli = new Channel(cliopt);
-        cli.handlerList(handlerlist);
-        cli.connect("127.0.0.1", 8081);
+    // wait
+    Thread.sleep(1000);
 
-        //wait
-        Thread.sleep(2000);
+    //start a gmssl client
+    SslContext cliopt = new SslContext(true, false).trustCertificateAuth(caBytes).useCertificate(clicrtBytes, clikeyBytes).useEncryptCertificate(enClicrtBytes, enClikeyBytes);
+    Channel cli = new Channel(cliopt);
+    cli.handlerList(handlerlist);
+    cli.connect("127.0.0.1", 8081);
 
-        //close client
-        cli.close();
-        
-    } catch (Exception e) {
-        e.printStackTrace();
-    }
+    //wait
+    Thread.sleep(2000);
+
+    //close client
+    cli.close();
+    server.close();
 ```
 ## gmssl https server examples 
 ``` java
+
     String root = getCurrentWorkDir();
 
     String ca = root + "crt/ca.crt";
@@ -375,39 +353,29 @@ memory cost: 671MB (200000 requests)
     System.out.println("start server.");
     
     HandlerList handlerlist = new HandlerList();
-    handlerlist.add(new HttpWrappedHandler() {
+    handlerlist.add(new HttpAbstractHandler() {
         @Override
-        public void handle(HttpRequest req, HttpResponse res) throws Exception {
+        public void handle(HttpRequest req, HttpResponse res) {
             String uri = req.getUri();
             res.setContentType(ContentType.APPLICATION_JSON);
             if(uri.equals("/nihao")) {
-            res.setStatus(HttpStatus.OK);
-            res.sendContent("{\"nihao\":\"ni\"}".getBytes());
-        } else {
-            res.setStatus(HttpStatus.NOT_FOUND);
-            res.sendContent("{\"nihao\":\"ni\"}".getBytes());
+                res.setStatus(HttpStatus.OK);
+                res.sendContent("{\"nihao\":\"ni\"}".getBytes());
+            } else {
+                res.setStatus(HttpStatus.NOT_FOUND);
+                res.sendContent("{\"nihao\":\"ni\"}".getBytes());
+            }
         }
-    }
-
-    @Override
-    public void handleException(HttpRequest req, HttpResponse res, Throwable t) {
-        t.printStackTrace();
-        String body = "{" +
-            "\"server\": \"Java/"+System.getProperty("java.version")+"\"," +
-            "\"time\": \"" + LocalDateTime.now().toString() + "\"," +
-            "\"status\": \"" + HttpStatus.SERVICE_UNAVAILABLE.getStatus() + "\"" +
-            "}";
-
-        res.setStatus(HttpStatus.SERVICE_UNAVAILABLE);
-        res.setContentType(ContentType.APPLICATION_JSON);
-        res.sendContent(body.getBytes());
+        @Override
+        public void handleException(Throwable t) {
+            t.printStackTrace();
         }
     });
 
-    SslContext opt = new SslContext().trustCertificateAuth(caBytes).useCertificate(crtBytes, keyBytes);
+    SslContext opt = new SslContext(false).trustCertificateAuth(caBytes).useCertificate(crtBytes, keyBytes);
     ServerChannel server = new ServerChannel(opt);
     server.handlerList(handlerlist);
-    server.listen(8080);
+    server.listen("127.0.0.1", 8080);
 ```
 or 
 ``` java
@@ -418,31 +386,34 @@ or
     String crt = root + "crt/server.crt";
     String enkey = root + "crt/server_en.key";
     String encrt = root + "crt/server_en.crt";
-    try {
-        byte[] caBytes= Files.readAllBytes(Paths.get(ca));
-        byte[] crtBytes= Files.readAllBytes(Paths.get(crt));
-        byte[] keyBytes= Files.readAllBytes(Paths.get(key));
-        byte[] enCrtBytes= Files.readAllBytes(Paths.get(encrt));
-        byte[] enKeyBytes= Files.readAllBytes(Paths.get(enkey));
+
+    byte[] caBytes= Files.readAllBytes(Paths.get(ca));
+    byte[] crtBytes= Files.readAllBytes(Paths.get(crt));
+    byte[] keyBytes= Files.readAllBytes(Paths.get(key));
+    byte[] enCrtBytes= Files.readAllBytes(Paths.get(encrt));
+    byte[] enKeyBytes= Files.readAllBytes(Paths.get(enkey));
         
-        System.out.println("start server.");
-        SslContext opt = new SslContext(false).trustCertificateAuth(caBytes).useCertificate(crtBytes, keyBytes).useEncryptCertificate(enCrtBytes, enKeyBytes);
-        HttpServer server = new HttpServer(opt);
-        server.listen("127.0.0.1", 8081, new HttpWrappedHandler() {
-
+    System.out.println("start server.");
+    SslContext opt = new SslContext(false).trustCertificateAuth(caBytes).useCertificate(crtBytes, keyBytes).useEncryptCertificate(enCrtBytes, enKeyBytes);
+    HttpServer server = new HttpServer(opt);
+    server.listen("127.0.0.1", 8081, new HttpAbstractHandler() {
         @Override
-        public void handle(HttpRequest req, HttpResponse res) throws Exception {
-            //do something here
+        public void handle(HttpRequest req, HttpResponse res) {
+            String uri = req.getUri();
+            res.setContentType(ContentType.APPLICATION_JSON);
+            if(uri.equals("/nihao")) {
+                res.setStatus(HttpStatus.OK);
+                res.sendContent("{\"nihao\":\"ni\"}".getBytes());
+            } else {
+                res.setStatus(HttpStatus.NOT_FOUND);
+                res.sendContent("{\"nihao\":\"ni\"}".getBytes());
+            }
         }
-
         @Override
-        public void handleException(HttpRequest req, HttpResponse res, Throwable t) {
+        public void handleException(Throwable t) {
             t.printStackTrace();
         }
-        });
-    } catch(Exception e) {
-        e.printStackTrace();
-    }    
+    });
 ```
 
 ## http(s) client examples 
