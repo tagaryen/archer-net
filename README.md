@@ -9,7 +9,7 @@ maven:
         <version>1.5.4</version>  
     </dependency>  
 ```  
-## (32GB RAM 8 cores)  
+## Benchmark (32GB RAM 8 cores)  
 
 ### spring 3.x  (enable virtual threads) JDK21
 ``` java
