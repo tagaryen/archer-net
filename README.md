@@ -11,7 +11,7 @@ maven:
 ```  
 ## Benchmark (32GB RAM, 8 cores, CentOS 7)  
 
-### spring 3.x  (enable virtual threads) JDK21
+### spring web 3.4.13  (enable virtual threads) JDK21
 ``` java
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
